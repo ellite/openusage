@@ -1,0 +1,48 @@
+# Dev tooling
+.git/
+.github/
+docs/
+*.md
+
+# Common AI files
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+copilot-instructions.md
+.claude/
+.codex/
+.agents/
+.cursor/
+.windsurf/
+
+# Data — never belongs in the build context
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+
+# Local dev secrets — production config comes from docker-compose's
+# environment/env_file, not a baked-in file
+.env*
+*.env
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Backend build artifacts / local env
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/static/
+backend/tests/
+
+# Frontend build artifacts / local env
+frontend/node_modules/
+frontend/dist/
+frontend/.astro/

@@ -1,0 +1,1996 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Settings - OpenUsage">
+  <div class="settings-header">
+    <div>
+      <h1>Account</h1>
+      <p class="subtitle">Your email is used for password resets and OIDC sign-in</p>
+    </div>
+  </div>
+
+  <form id="account-form" class="form-row">
+    <div class="form-group">
+      <input type="email" id="account-email" placeholder="you@example.com" />
+    </div>
+    <button type="submit" class="btn btn-sm">Save</button>
+  </form>
+  <div id="account-error" class="auth-error" style="display: none;"></div>
+  <div id="account-success" class="auth-success" style="display: none;">Email updated.</div>
+
+  <form id="password-form">
+    <div class="form-group">
+      <label for="current-password">Current password</label>
+      <input type="password" id="current-password" autocomplete="current-password" required />
+    </div>
+    <div class="form-group">
+      <label for="new-password">New password</label>
+      <input type="password" id="new-password" autocomplete="new-password" required minlength="4" />
+    </div>
+    <button type="submit" class="btn btn-sm">Change password</button>
+  </form>
+  <div id="password-error" class="auth-error" style="display: none;"></div>
+  <div id="password-success" class="auth-success" style="display: none;">Password updated.</div>
+
+  <hr class="section-divider" />
+
+  <div class="settings-header">
+    <div>
+      <h1>Security</h1>
+      <p class="subtitle">Two-factor authentication</p>
+    </div>
+  </div>
+
+  <div id="twofactor-loading" class="msg-hint">Loading…</div>
+  <div id="twofactor-disabled-block" style="display: none;">
+    <p class="msg-hint">Two-factor authentication is not enabled.</p>
+    <div class="twofactor-actions">
+      <button type="button" id="twofactor-enable-btn" class="btn btn-sm">Enable two-factor authentication</button>
+    </div>
+  </div>
+  <div id="twofactor-enabled-block" style="display: none;">
+    <p class="msg-hint" id="twofactor-recovery-remaining"></p>
+    <div class="twofactor-actions">
+      <button type="button" id="twofactor-regen-btn" class="btn btn-sm">Regenerate recovery codes</button>
+      <button type="button" id="twofactor-disable-btn" class="btn btn-sm btn-danger">Disable</button>
+    </div>
+  </div>
+
+  <hr class="section-divider" />
+
+  <div class="settings-header">
+    <div>
+      <h1>Categories</h1>
+      <p class="subtitle">Group services into sections on the home page</p>
+    </div>
+  </div>
+
+  <div id="categories-list" class="categories-list"></div>
+
+  <form id="add-category-form" class="add-category-form">
+    <input type="text" id="new-category-name" placeholder="New category name (e.g. Work, Personal)" required />
+    <button type="submit" class="btn btn-sm">+ Add Category</button>
+  </form>
+
+  <hr class="section-divider" />
+
+  <div class="settings-header" id="settings-header">
+    <div>
+      <h1>Configured Services</h1>
+      <p class="subtitle">Manage your connected AI provider instances</p>
+    </div>
+    <button id="add-service-btn" class="btn btn-primary">+ Add Service</button>
+  </div>
+
+  <div id="services-list" class="services-list">
+    <div id="loading-state" class="empty-card">
+      <p class="subtitle">Loading configured services...</p>
+    </div>
+  </div>
+
+  <!-- Add/Edit Service Modal -->
+  <div id="service-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Service</h3>
+        <button id="modal-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="service-form">
+          <input type="hidden" id="edit-service-id" value="" />
+
+          <div class="form-group">
+            <label for="service-type">Service Provider</label>
+            <select id="service-type" class="form-select">
+              <option value="claude">Claude (Anthropic)</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="copilot">GitHub Copilot</option>
+              <option value="openai">OpenAI</option>
+              <option value="chatgpt">ChatGPT</option>
+              <option value="ollama_cloud">Ollama Cloud</option>
+              <option value="custom">Custom API</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="service-name">Instance Name</label>
+            <input type="text" id="service-name" placeholder="e.g. Personal Claude, Work Gemini" required />
+          </div>
+
+          <div class="form-group">
+            <label for="service-category">Category</label>
+            <select id="service-category" class="form-select">
+              <option value="">Uncategorized</option>
+            </select>
+          </div>
+
+          <hr class="modal-divider" />
+
+          <!-- Config Form: Claude -->
+          <div id="config-claude" class="config-section">
+            <div class="curl-box">
+              <label>Import from cURL</label>
+              <textarea id="claude-curl" placeholder="Paste cURL request from claude.ai/api/organizations/..."></textarea>
+              <button type="button" id="claude-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="claude-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="claude-org-url">Organization URL</label>
+              <input type="text" id="claude-org-url" placeholder="https://claude.ai/api/organizations/.../usage" />
+            </div>
+            <div class="form-group">
+              <label for="claude-cookies">Cookies String</label>
+              <input type="text" id="claude-cookies" placeholder="sessionKey=sk-ant-..." />
+            </div>
+          </div>
+
+          <!-- Config Form: Gemini -->
+          <div id="config-gemini" class="config-section" style="display: none;">
+            <p class="msg-hint">For sessions that keep expiring, sign in to Gemini in Firefox and import its cURL. Brave, Chrome, and Edge can bind Google sessions to the original device, preventing OpenUsage from renewing copied cookies.</p>
+            <div class="curl-box">
+              <label>Import from cURL</label>
+              <textarea id="gemini-curl" placeholder="Paste cURL request from gemini.google.com..."></textarea>
+              <button type="button" id="gemini-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="gemini-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="gemini-cookies">Cookies String</label>
+              <input type="text" id="gemini-cookies" placeholder="__Secure-1PSID=...; __Secure-1PSIDTS=..." />
+              <input type="hidden" id="gemini-at-token" />
+              <input type="hidden" id="gemini-bl" />
+              <input type="hidden" id="gemini-sid" />
+            </div>
+          </div>
+
+          <!-- Config Form: DeepSeek -->
+          <div id="config-deepseek" class="config-section" style="display: none;">
+            <div class="form-group">
+              <label for="deepseek-key">API Key</label>
+              <input type="password" id="deepseek-key" placeholder="sk-..." />
+            </div>
+          </div>
+
+          <!-- Config Form: Copilot -->
+          <div id="config-copilot" class="config-section" style="display: none;">
+            <div class="device-flow-box">
+              <button type="button" id="copilot-start-btn" class="btn btn-sm">Start GitHub Device Login</button>
+              <div id="copilot-device-info" style="display: none;" class="device-info">
+                <p>1. Open <a id="copilot-url" href="#" target="_blank" rel="noopener">GitHub Device Auth</a></p>
+                <p>2. Enter Code: <strong id="copilot-code" class="code-badge"></strong></p>
+                <p class="msg-hint" id="copilot-poll-status">Waiting for authorization...</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="copilot-token">GitHub Token / Session Token</label>
+              <input type="text" id="copilot-token" placeholder="ghu_..." />
+            </div>
+          </div>
+
+          <!-- Config Form: OpenAI -->
+          <div id="config-openai" class="config-section" style="display: none;">
+            <div class="form-group">
+              <label for="openai-admin-key">Admin API Key</label>
+              <input type="password" id="openai-admin-key" placeholder="sk-admin-..." />
+            </div>
+            <div class="curl-box">
+              <label>Or Import Session from cURL (platform.openai.com)</label>
+              <textarea id="openai-curl" placeholder="Paste cURL request from platform.openai.com..."></textarea>
+              <button type="button" id="openai-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="openai-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="openai-session-key">Session Key (Optional)</label>
+              <input type="password" id="openai-session-key" placeholder="sess-..." />
+            </div>
+            <div class="form-group">
+              <label for="openai-org-id">Organization ID (Optional)</label>
+              <input type="text" id="openai-org-id" placeholder="org-..." />
+            </div>
+          </div>
+
+          <!-- Config Form: ChatGPT -->
+          <div id="config-chatgpt" class="config-section" style="display: none;">
+            <div class="curl-box">
+              <label>Import from cURL</label>
+              <textarea id="chatgpt-curl" placeholder="Paste cURL request from chatgpt.com..."></textarea>
+              <button type="button" id="chatgpt-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="chatgpt-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="chatgpt-cookies">Cookies String</label>
+              <input type="text" id="chatgpt-cookies" placeholder="__Secure-next-auth.session-token=...; cf_clearance=...; _puid=..." />
+              <p class="msg-hint">Include the Cloudflare clearance cookie (cf_clearance) from the same request — it expires in a few hours, so re-paste when fetches start failing even though you're still logged in.</p>
+            </div>
+          </div>
+
+          <!-- Config Form: Ollama Cloud -->
+          <div id="config-ollama_cloud" class="config-section" style="display: none;">
+            <div class="curl-box">
+              <label>Import from cURL</label>
+              <textarea id="ollama_cloud-curl" placeholder="Paste cURL request from ollama.com/settings..."></textarea>
+              <button type="button" id="ollama_cloud-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="ollama_cloud-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="ollama_cloud-cookies">Cookies String</label>
+              <input type="text" id="ollama_cloud-cookies" placeholder="cf_clearance=...; __Secure-session=..." />
+              <p class="msg-hint">Scraped from the HTML settings page — the Cloudflare clearance cookie expires in hours, so re-paste when it goes stale.</p>
+            </div>
+          </div>
+
+          <!-- Config Form: Custom API -->
+          <div id="config-custom" class="config-section" style="display: none;">
+            <div class="form-group">
+              <label for="custom-icon-url">Icon URL (optional)</label>
+              <input type="text" id="custom-icon-url" placeholder="https://example.com/favicon.png" />
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
+                <label for="custom-url">Endpoint URL</label>
+                <input type="text" id="custom-url" placeholder="https://api.example.com/getBalance" />
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="custom-method">Method</label>
+                <select id="custom-method" class="form-select">
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="custom-api-key">API Key</label>
+              <input type="password" id="custom-api-key" placeholder="Your API key" />
+            </div>
+            <div class="form-group">
+              <label for="custom-body">Request Body (JSON, POST only) — use <code>{`{{api_key}}`}</code> where the key goes</label>
+              <textarea id="custom-body" placeholder={`{"clientKey": "{{api_key}}"}`}></textarea>
+            </div>
+            <div class="form-group">
+              <label for="custom-headers">Extra Headers (JSON, optional) — <code>{`{{api_key}}`}</code> supported</label>
+              <textarea id="custom-headers" placeholder={`{"Authorization": "Bearer {{api_key}}"}`}></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="custom-success-path">Success check field (optional)</label>
+                <input type="text" id="custom-success-path" placeholder="e.g. errorId" />
+              </div>
+              <div class="form-group">
+                <label for="custom-success-value">Expected value</label>
+                <input type="text" id="custom-success-value" placeholder="e.g. 0" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Fields to extract from response</label>
+              <div id="custom-fields-list"></div>
+              <button type="button" id="custom-add-field-btn" class="btn btn-sm">+ Add field</button>
+            </div>
+
+            <div class="curl-box">
+              <button type="button" id="custom-test-btn" class="btn btn-sm">Test Connection</button>
+              <div id="custom-test-result"></div>
+            </div>
+          </div>
+
+          <div id="modal-error" class="auth-error" style="display: none; margin-top: 12px;"></div>
+
+          <div class="modal-footer">
+            <button type="button" id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="modal-save-btn" class="btn btn-primary">Save Service</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-factor: step 1 (password) / step 2 (QR + confirm code) -->
+  <div id="twofactor-setup-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Enable two-factor authentication</h3>
+        <button type="button" id="twofactor-setup-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="twofactor-setup-error" class="auth-error" style="display: none;"></div>
+
+        <form id="twofactor-password-form" class="twofactor-step">
+          <p class="msg-hint">Confirm your password to continue.</p>
+          <div class="form-group">
+            <label for="twofactor-setup-password">Password</label>
+            <input type="password" id="twofactor-setup-password" autocomplete="current-password" required />
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="twofactor-setup-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Continue</button>
+          </div>
+        </form>
+
+        <form id="twofactor-confirm-form" class="twofactor-step" style="display: none;">
+          <p class="msg-hint">Scan this QR code with your authenticator app, or enter the code manually.</p>
+          <div class="twofactor-qr">
+            <img id="twofactor-qr-image" alt="Two-factor QR code" />
+          </div>
+          <p class="twofactor-secret" id="twofactor-secret-text"></p>
+          <div class="form-group">
+            <label for="twofactor-confirm-code">6-digit code</label>
+            <input type="text" id="twofactor-confirm-code" placeholder="123456" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required />
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="twofactor-confirm-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Enable</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-factor: recovery codes (shown once after enabling or regenerating) -->
+  <div id="twofactor-recovery-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Save your recovery codes</h3>
+      </div>
+      <div class="modal-body">
+        <p class="msg-hint">Each code can be used once to sign in if you lose access to your authenticator app. Store them somewhere safe - they won't be shown again.</p>
+        <div id="twofactor-recovery-codes" class="recovery-codes-list"></div>
+        <div class="modal-footer">
+          <button type="button" id="twofactor-recovery-download-btn" class="btn btn-secondary">Download codes</button>
+          <button type="button" id="twofactor-recovery-done-btn" class="btn btn-primary">I've saved these codes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-factor: re-auth for disable / regenerate-codes -->
+  <div id="twofactor-manage-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="twofactor-manage-title">Disable two-factor authentication</h3>
+        <button type="button" id="twofactor-manage-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="twofactor-manage-error" class="auth-error" style="display: none;"></div>
+        <form id="twofactor-manage-form">
+          <div class="form-group">
+            <label for="twofactor-manage-password">Password</label>
+            <input type="password" id="twofactor-manage-password" autocomplete="current-password" required />
+          </div>
+          <div class="form-group">
+            <label for="twofactor-manage-code">Two-factor or recovery code</label>
+            <input type="text" id="twofactor-manage-code" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required />
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="twofactor-manage-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="twofactor-manage-submit-btn" class="btn btn-primary btn-danger">Confirm</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .settings-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin: 0;
+    }
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 32px 0;
+    }
+    .categories-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    :global(.category-row) {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    :global(.category-row input) {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 4px 0;
+      outline: none;
+      font-family: inherit;
+    }
+    :global(.category-row .cat-actions) {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    :global(.category-row .icon-btn-sm) {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 7px;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+    }
+    :global(.category-row .icon-btn-sm:hover) {
+      color: var(--text);
+      border-color: var(--text-dim);
+    }
+    :global(.category-row .icon-btn-sm:disabled) {
+      opacity: 0.35;
+      cursor: default;
+    }
+    :global(.category-row .icon-btn-sm.cat-delete:hover) {
+      color: var(--red);
+      border-color: var(--red);
+    }
+    .add-category-form {
+      display: flex;
+      gap: 8px;
+    }
+    .add-category-form input {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    .add-category-form input:focus {
+      border-color: var(--gemini);
+    }
+    :global(.svc-category-badge) {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 9px;
+      margin-left: 8px;
+    }
+    .services-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    :global(.service-card) {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      box-shadow: var(--shadow);
+    }
+    :global(.service-meta) {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    :global(.svc-icon) {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    :global(.svc-icon img) {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+    }
+    :global(.claude-bg)   { background: color-mix(in srgb, var(--claude) 18%, var(--surface)); }
+    :global(.gemini-bg)   { background: color-mix(in srgb, var(--gemini) 18%, var(--surface)); }
+    :global(.deepseek-bg) { background: color-mix(in srgb, var(--deepseek) 18%, var(--surface)); }
+    :global(.copilot-bg)  { background: color-mix(in srgb, var(--copilot) 18%, var(--surface)); }
+    :global(.openai-bg)   { background: color-mix(in srgb, var(--openai) 18%, var(--surface)); }
+    :global(.chatgpt-bg)  { background: color-mix(in srgb, var(--chatgpt) 18%, var(--surface)); }
+    :global(.ollama_cloud-bg) { background: color-mix(in srgb, var(--ollama_cloud) 18%, var(--surface)); }
+    :global(.custom-bg)   { background: color-mix(in srgb, var(--custom) 18%, var(--surface)); }
+
+    :global(.svc-details h3) {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 2px;
+    }
+    :global(.svc-type-badge) {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    :global(.svc-actions) {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12.5px;
+    }
+    .empty-card {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .welcome-empty-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 44px 32px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      max-width: 680px;
+      margin: 12px auto 0;
+    }
+    .welcome-hero-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .welcome-logo {
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+    }
+    .provider-pill-stack {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .provider-pill {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--surface);
+      margin: 0 -4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .welcome-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0 0 10px;
+      color: var(--text);
+    }
+    .welcome-description {
+      color: var(--text-muted);
+      font-size: 14.5px;
+      line-height: 1.6;
+      max-width: 520px;
+      margin: 0 auto 28px;
+    }
+    .welcome-actions {
+      display: flex;
+      justify-content: center;
+    }
+    .empty-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .icon-btn-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-body {
+      padding: 24px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .form-group input, .form-select, textarea {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-select:focus, textarea:focus {
+      border-color: var(--gemini);
+    }
+    textarea {
+      height: 70px;
+      resize: vertical;
+    }
+    .modal-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .form-row .form-group {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
+    }
+    .form-group code {
+      background: var(--surface-2);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 12px;
+    }
+    /* Rows below are built at runtime via innerHTML (field list, test
+       results), so they never get Astro's scoped-style attribute — these
+       rules must stay :global() or they silently never match. */
+    :global(.custom-field-row) {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    :global(.custom-field-row input) {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    :global(.custom-field-row select) {
+      flex: 0 0 110px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      outline: none;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    :global(.custom-field-row .cf-symbol) {
+      flex: 0 0 56px !important;
+    }
+    :global(.custom-field-row .btn-danger) {
+      flex-shrink: 0;
+      padding: 8px 10px;
+    }
+    :global(#custom-test-result) {
+      margin-top: 10px;
+    }
+    :global(#custom-test-result .test-current-fields) {
+      margin-bottom: 4px;
+    }
+    :global(#custom-test-result .test-row) {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 3px 0;
+    }
+    :global(#custom-test-result .test-row span:first-child) {
+      color: var(--text-muted);
+    }
+    :global(.response-fields-box) {
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+    }
+    :global(.response-field-row) {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+    }
+    :global(.response-field-row:last-child) {
+      border-bottom: none;
+    }
+    :global(.response-field-row .rf-path) {
+      flex: 1;
+      min-width: 0;
+      color: var(--text-dim);
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    :global(.response-field-row .rf-value) {
+      flex: 1;
+      min-width: 0;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    :global(.response-field-row .rf-add-btn) {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      font-size: 11.5px;
+    }
+    .curl-box, .device-flow-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .curl-box label, .device-flow-box label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .msg-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 4px;
+    }
+    .msg-hint.success {
+      color: var(--green);
+    }
+    .msg-hint.error {
+      color: var(--red);
+    }
+    .auth-error {
+      background: color-mix(in srgb, var(--red) 15%, var(--surface));
+      border: 1px solid var(--red);
+      color: var(--red);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      margin: 8px 0 16px;
+    }
+    .auth-success {
+      background: color-mix(in srgb, var(--green) 15%, var(--surface));
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      margin: 8px 0 16px;
+    }
+    .twofactor-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .twofactor-step {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .twofactor-qr {
+      display: flex;
+      justify-content: center;
+      background: #fff;
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .twofactor-qr img {
+      width: 180px;
+      height: 180px;
+    }
+    .twofactor-secret {
+      text-align: center;
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      word-break: break-all;
+      margin: 0 0 16px;
+    }
+    .recovery-codes-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin: 12px 0;
+      font-family: monospace;
+      font-size: 13.5px;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .code-badge {
+      background: var(--surface);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-family: monospace;
+      color: var(--gemini);
+    }
+    .device-info {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .device-info p {
+      font-size: 13.5px;
+      color: var(--text);
+      margin: 0;
+    }
+  </style>
+
+  <script>
+    let userServices: any[] = [];
+    let allCategories: any[] = [];
+
+    function getAuthToken() {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        window.location.href = '/login';
+        return null;
+      }
+      return token;
+    }
+
+    // ── Account ──
+    async function loadAccount() {
+      const token = getAuthToken();
+      const input = document.getElementById('account-email') as HTMLInputElement;
+      if (!token || !input) return;
+      try {
+        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error('Failed to load account');
+        const data = await res.json();
+        input.value = data.user.email || '';
+      } catch (e) {
+        console.error('Failed to load account', e);
+      }
+    }
+
+    document.getElementById('account-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = getAuthToken();
+      const input = document.getElementById('account-email') as HTMLInputElement;
+      const errorEl = document.getElementById('account-error');
+      const successEl = document.getElementById('account-success');
+      if (!token || !input) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (successEl) successEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/email', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ email: input.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not update email');
+        if (successEl) successEl.style.display = 'block';
+        const userStr = localStorage.getItem('auth_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          user.email = input.value.trim();
+          localStorage.setItem('auth_user', JSON.stringify(user));
+        }
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'Could not update email';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+
+    document.getElementById('password-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = getAuthToken();
+      const currentInput = document.getElementById('current-password') as HTMLInputElement;
+      const newInput = document.getElementById('new-password') as HTMLInputElement;
+      const errorEl = document.getElementById('password-error');
+      const successEl = document.getElementById('password-success');
+      if (!token || !currentInput || !newInput) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (successEl) successEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ current_password: currentInput.value, new_password: newInput.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not update password');
+        applySession(data);
+        currentInput.value = '';
+        newInput.value = '';
+        if (successEl) successEl.style.display = 'block';
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'Could not update password';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+
+    // ── Two-factor authentication ──
+    function applySession(data: { token: string; user: any }) {
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+    }
+
+    async function loadTwoFactorStatus() {
+      const token = getAuthToken();
+      if (!token) return;
+      const loadingEl = document.getElementById('twofactor-loading');
+      const disabledBlock = document.getElementById('twofactor-disabled-block');
+      const enabledBlock = document.getElementById('twofactor-enabled-block');
+      try {
+        const res = await fetch('/api/auth/2fa', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error('Failed to load two-factor status');
+        const data = await res.json();
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (data.enabled) {
+          if (enabledBlock) enabledBlock.style.display = 'block';
+          if (disabledBlock) disabledBlock.style.display = 'none';
+          const remainingEl = document.getElementById('twofactor-recovery-remaining');
+          if (remainingEl) {
+            remainingEl.textContent = `Enabled - ${data.recovery_codes_remaining} recovery code${data.recovery_codes_remaining === 1 ? '' : 's'} remaining.`;
+          }
+        } else {
+          if (enabledBlock) enabledBlock.style.display = 'none';
+          if (disabledBlock) disabledBlock.style.display = 'block';
+        }
+      } catch (e) {
+        if (loadingEl) loadingEl.textContent = 'Could not load two-factor status.';
+        console.error('Failed to load 2FA status', e);
+      }
+    }
+
+    let currentRecoveryCodes: string[] = [];
+
+    function openRecoveryCodesModal(codes: string[]) {
+      currentRecoveryCodes = codes;
+      const list = document.getElementById('twofactor-recovery-codes');
+      if (list) list.innerHTML = codes.map(c => `<span>${c}</span>`).join('');
+      document.getElementById('twofactor-recovery-modal')?.style.setProperty('display', 'flex');
+    }
+
+    document.getElementById('twofactor-recovery-download-btn')?.addEventListener('click', () => {
+      const blob = new Blob([currentRecoveryCodes.join('\n') + '\n'], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'openusage-recovery-codes.txt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    // Setup: step 1 (password) -> step 2 (QR + confirm code)
+    const setupModal = document.getElementById('twofactor-setup-modal');
+    const passwordStep = document.getElementById('twofactor-password-form');
+    const confirmStep = document.getElementById('twofactor-confirm-form');
+
+    function closeSetupModal() {
+      setupModal?.style.setProperty('display', 'none');
+      (document.getElementById('twofactor-setup-password') as HTMLInputElement).value = '';
+      (document.getElementById('twofactor-confirm-code') as HTMLInputElement).value = '';
+      if (passwordStep) passwordStep.style.display = 'flex';
+      if (confirmStep) confirmStep.style.display = 'none';
+      document.getElementById('twofactor-setup-error')?.style.setProperty('display', 'none');
+    }
+
+    document.getElementById('twofactor-enable-btn')?.addEventListener('click', () => {
+      setupModal?.style.setProperty('display', 'flex');
+    });
+    document.getElementById('twofactor-setup-close-btn')?.addEventListener('click', closeSetupModal);
+    document.getElementById('twofactor-setup-cancel-btn')?.addEventListener('click', closeSetupModal);
+    document.getElementById('twofactor-confirm-cancel-btn')?.addEventListener('click', closeSetupModal);
+
+    document.getElementById('twofactor-password-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = getAuthToken();
+      const passwordInput = document.getElementById('twofactor-setup-password') as HTMLInputElement;
+      const errorEl = document.getElementById('twofactor-setup-error');
+      if (!token || !passwordInput) return;
+      if (errorEl) errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/2fa/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ password: passwordInput.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not start setup');
+
+        (document.getElementById('twofactor-qr-image') as HTMLImageElement).src = data.qr_code;
+        const secretEl = document.getElementById('twofactor-secret-text');
+        if (secretEl) secretEl.textContent = data.secret;
+        if (passwordStep) passwordStep.style.display = 'none';
+        if (confirmStep) confirmStep.style.display = 'flex';
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'Could not start setup';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+
+    document.getElementById('twofactor-confirm-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = getAuthToken();
+      const codeInput = document.getElementById('twofactor-confirm-code') as HTMLInputElement;
+      const errorEl = document.getElementById('twofactor-setup-error');
+      if (!token || !codeInput) return;
+      if (errorEl) errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/2fa/enable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ code: codeInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not confirm code');
+
+        applySession(data);
+        closeSetupModal();
+        openRecoveryCodesModal(data.recovery_codes);
+        await loadTwoFactorStatus();
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'Could not confirm code';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+
+    document.getElementById('twofactor-recovery-done-btn')?.addEventListener('click', () => {
+      document.getElementById('twofactor-recovery-modal')?.style.setProperty('display', 'none');
+    });
+
+    // Manage (disable / regenerate recovery codes): shared password+code re-auth modal
+    let pendingManageAction: 'disable' | 'regenerate' | null = null;
+    const manageModal = document.getElementById('twofactor-manage-modal');
+
+    function closeManageModal() {
+      manageModal?.style.setProperty('display', 'none');
+      (document.getElementById('twofactor-manage-password') as HTMLInputElement).value = '';
+      (document.getElementById('twofactor-manage-code') as HTMLInputElement).value = '';
+      document.getElementById('twofactor-manage-error')?.style.setProperty('display', 'none');
+      pendingManageAction = null;
+    }
+
+    document.getElementById('twofactor-disable-btn')?.addEventListener('click', () => {
+      pendingManageAction = 'disable';
+      const title = document.getElementById('twofactor-manage-title');
+      if (title) title.textContent = 'Disable two-factor authentication';
+      manageModal?.style.setProperty('display', 'flex');
+    });
+    document.getElementById('twofactor-regen-btn')?.addEventListener('click', () => {
+      pendingManageAction = 'regenerate';
+      const title = document.getElementById('twofactor-manage-title');
+      if (title) title.textContent = 'Regenerate recovery codes';
+      manageModal?.style.setProperty('display', 'flex');
+    });
+    document.getElementById('twofactor-manage-close-btn')?.addEventListener('click', closeManageModal);
+    document.getElementById('twofactor-manage-cancel-btn')?.addEventListener('click', closeManageModal);
+
+    document.getElementById('twofactor-manage-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = getAuthToken();
+      const passwordInput = document.getElementById('twofactor-manage-password') as HTMLInputElement;
+      const codeInput = document.getElementById('twofactor-manage-code') as HTMLInputElement;
+      const errorEl = document.getElementById('twofactor-manage-error');
+      if (!token || !passwordInput || !codeInput || !pendingManageAction) return;
+      if (errorEl) errorEl.style.display = 'none';
+
+      const endpoint = pendingManageAction === 'disable' ? '/api/auth/2fa/disable' : '/api/auth/2fa/recovery-codes';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ password: passwordInput.value, code: codeInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not complete request');
+
+        const action = pendingManageAction;
+        closeManageModal();
+        if (action === 'disable') {
+          applySession(data);
+          await loadTwoFactorStatus();
+        } else {
+          openRecoveryCodesModal(data.recovery_codes);
+          await loadTwoFactorStatus();
+        }
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'Could not complete request';
+          errorEl.style.display = 'block';
+        }
+      }
+    });
+
+    async function loadCategories() {
+      const listEl = document.getElementById('categories-list');
+      const select = document.getElementById('service-category') as HTMLSelectElement;
+      const token = getAuthToken();
+      if (!listEl || !token) return;
+
+      try {
+        const res = await fetch('/api/categories', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        allCategories = await res.json();
+
+        listEl.innerHTML = allCategories.map((cat, idx) => `
+          <div class="category-row" data-id="${cat.id}">
+            <input type="text" class="cat-name-input" value="${escapeHtml(cat.name)}" data-id="${cat.id}" />
+            <div class="cat-actions">
+              <button type="button" class="icon-btn-sm cat-move-up" data-id="${cat.id}" title="Move up" ${idx === 0 ? 'disabled' : ''}>&uarr;</button>
+              <button type="button" class="icon-btn-sm cat-move-down" data-id="${cat.id}" title="Move down" ${idx === allCategories.length - 1 ? 'disabled' : ''}>&darr;</button>
+              <button type="button" class="icon-btn-sm cat-delete" data-id="${cat.id}" title="Delete category">&times;</button>
+            </div>
+          </div>
+        `).join('');
+
+        if (select) {
+          const current = select.value;
+          select.innerHTML = '<option value="">Uncategorized</option>' +
+            allCategories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
+          select.value = current;
+        }
+
+        listEl.querySelectorAll('.cat-name-input').forEach((el: any) => {
+          const saveRename = async () => {
+            const id = parseInt(el.dataset.id);
+            const name = el.value.trim();
+            const cat = allCategories.find(c => c.id === id);
+            if (!name || !cat || name === cat.name) { el.value = cat?.name ?? ''; return; }
+            await fetch(`/api/categories/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ name })
+            });
+            await loadCategories();
+          };
+          el.addEventListener('blur', saveRename);
+          el.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+          });
+        });
+
+        listEl.querySelectorAll('.cat-move-up, .cat-move-down').forEach((btn: any) => {
+          btn.addEventListener('click', async () => {
+            const id = parseInt(btn.dataset.id);
+            const direction = btn.classList.contains('cat-move-up') ? 'up' : 'down';
+            await fetch(`/api/categories/${id}/move`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ direction })
+            });
+            await loadCategories();
+          });
+        });
+
+        listEl.querySelectorAll('.cat-delete').forEach((btn: any) => {
+          btn.addEventListener('click', async () => {
+            const id = parseInt(btn.dataset.id);
+            const cat = allCategories.find(c => c.id === id);
+            if (!confirm(`Delete category "${cat?.name}"? Services in it become Uncategorized.`)) return;
+            await fetch(`/api/categories/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            await loadCategories();
+            await loadUserServices();
+          });
+        });
+      } catch (e) {
+        console.error('Failed to load categories', e);
+      }
+    }
+
+    document.getElementById('add-category-form')?.addEventListener('submit', async (e: Event) => {
+      e.preventDefault();
+      const input = document.getElementById('new-category-name') as HTMLInputElement;
+      const name = input.value.trim();
+      if (!name) return;
+      const token = getAuthToken();
+      if (!token) return;
+      await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name })
+      });
+      input.value = '';
+      await loadCategories();
+    });
+
+    async function loadUserServices() {
+      const listEl = document.getElementById('services-list');
+      const headerEl = document.getElementById('settings-header');
+      if (!listEl) return;
+
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/user-services', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.status === 401) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          window.location.href = '/login';
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+        userServices = await res.json();
+
+        if (headerEl) headerEl.style.display = 'flex';
+
+        if (!userServices.length) {
+          listEl.innerHTML = '';
+          return;
+        }
+
+        const iconMap: Record<string, string> = {
+          claude: '/icons/claude.svg',
+          gemini: '/icons/gemini.svg',
+          deepseek: '/icons/deepseek.svg',
+          copilot: '/icons/copilot-white.svg',
+          openai: '/icons/openai.svg',
+          chatgpt: '/icons/chatgpt.svg',
+          ollama_cloud: '/icons/ollama.png',
+          custom: '/icons/custom.svg',
+        };
+
+        function iconSrc(svc: any): string {
+          const customUrl = svc.config?.generic_icon_url;
+          if (svc.service_type === 'custom' && customUrl && /^https?:\/\//i.test(customUrl)) {
+            return customUrl;
+          }
+          return iconMap[svc.service_type] || '/favicon.svg';
+        }
+
+        listEl.innerHTML = userServices.map(svc => {
+          const cat = allCategories.find(c => c.id === svc.category_id);
+          return `
+          <div class="service-card" data-id="${svc.id}">
+            <div class="service-meta">
+              <span class="svc-icon ${svc.service_type}-bg">
+                <img src="${escapeHtml(iconSrc(svc))}" alt="" width="20" height="20" onerror="this.onerror=null;this.src='/icons/custom.svg';" />
+              </span>
+              <div class="svc-details">
+                <h3>${svc.name}</h3>
+                <span class="svc-type-badge">${svc.service_type}</span>
+                ${cat ? `<span class="svc-category-badge">${escapeHtml(cat.name)}</span>` : ''}
+              </div>
+            </div>
+            <div class="svc-actions">
+              <button class="btn btn-sm btn-edit" data-id="${svc.id}">Edit</button>
+              <button class="btn btn-sm btn-danger btn-delete" data-id="${svc.id}">Delete</button>
+            </div>
+          </div>
+        `;
+        }).join('');
+
+        // Attach listeners
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+          btn.addEventListener('click', (e: any) => {
+            const id = parseInt(e.target.dataset.id);
+            const svc = userServices.find(s => s.id === id);
+            if (svc) openModal(svc);
+          });
+        });
+
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+          btn.addEventListener('click', async (e: any) => {
+            const id = parseInt(e.target.dataset.id);
+            if (confirm('Are you sure you want to remove this service?')) {
+              await deleteService(id);
+            }
+          });
+        });
+
+      } catch (err) {
+        listEl.innerHTML = `<div class="empty-card"><p class="subtitle" style="color: var(--red);">Failed to load services</p></div>`;
+      }
+    }
+
+    async function deleteService(id: number) {
+      const token = getAuthToken();
+      if (!token) return;
+      try {
+        await fetch(`/api/user-services/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        await loadUserServices();
+      } catch (e) {
+        alert('Failed to delete service');
+      }
+    }
+
+    const modal = document.getElementById('service-modal');
+    const serviceTypeSelect = document.getElementById('service-type') as HTMLSelectElement;
+
+    function updateConfigSection() {
+      const type = serviceTypeSelect.value;
+      document.querySelectorAll('.config-section').forEach((el: any) => el.style.display = 'none');
+      const target = document.getElementById(`config-${type}`);
+      if (target) target.style.display = 'block';
+
+      const nameInput = document.getElementById('service-name') as HTMLInputElement;
+      const editId = (document.getElementById('edit-service-id') as HTMLInputElement).value;
+      if (!editId && nameInput) {
+        const defaultNames: Record<string, string> = {
+          claude: 'Claude Pro',
+          gemini: 'Gemini Advanced',
+          deepseek: 'DeepSeek API',
+          copilot: 'GitHub Copilot',
+          openai: 'OpenAI API',
+          chatgpt: 'ChatGPT Plus',
+          ollama_cloud: 'Ollama Cloud',
+          custom: 'Custom API'
+        };
+        nameInput.value = defaultNames[type] || 'My Service';
+      }
+    }
+
+    serviceTypeSelect?.addEventListener('change', updateConfigSection);
+
+    function openModal(svc: any = null) {
+      const modalTitle = document.getElementById('modal-title');
+      const editIdInput = document.getElementById('edit-service-id') as HTMLInputElement;
+      const nameInput = document.getElementById('service-name') as HTMLInputElement;
+      const errEl = document.getElementById('modal-error');
+      if (errEl) errEl.style.display = 'none';
+
+      if (svc) {
+        if (modalTitle) modalTitle.textContent = 'Edit Service';
+        if (editIdInput) editIdInput.value = svc.id.toString();
+        if (serviceTypeSelect) {
+          serviceTypeSelect.value = svc.service_type;
+          serviceTypeSelect.disabled = true;
+        }
+        if (nameInput) nameInput.value = svc.name;
+        (document.getElementById('service-category') as HTMLSelectElement).value = svc.category_id != null ? String(svc.category_id) : '';
+
+        const cfg = svc.config || {};
+        (document.getElementById('claude-org-url') as HTMLInputElement).value = cfg.claude_org_url || '';
+        (document.getElementById('claude-cookies') as HTMLInputElement).value = cfg.claude_cookies || '';
+        (document.getElementById('gemini-cookies') as HTMLInputElement).value = cfg.gemini_cookies || '';
+        (document.getElementById('gemini-at-token') as HTMLInputElement).value = cfg.gemini_at_token || '';
+        (document.getElementById('gemini-bl') as HTMLInputElement).value = cfg.gemini_bl || '';
+        (document.getElementById('gemini-sid') as HTMLInputElement).value = cfg.gemini_sid || '';
+        (document.getElementById('deepseek-key') as HTMLInputElement).value = cfg.deepseek_api_key || '';
+        (document.getElementById('copilot-token') as HTMLInputElement).value = cfg.copilot_token || '';
+        (document.getElementById('openai-admin-key') as HTMLInputElement).value = cfg.openai_admin_key || '';
+        (document.getElementById('openai-session-key') as HTMLInputElement).value = cfg.openai_session_key || '';
+        (document.getElementById('openai-org-id') as HTMLInputElement).value = cfg.openai_org_id || '';
+        (document.getElementById('chatgpt-cookies') as HTMLInputElement).value = cfg.chatgpt_cookies || '';
+        (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value = cfg.ollama_cookies || '';
+        (document.getElementById('custom-icon-url') as HTMLInputElement).value = cfg.generic_icon_url || '';
+        (document.getElementById('custom-url') as HTMLInputElement).value = cfg.generic_url || '';
+        (document.getElementById('custom-method') as HTMLSelectElement).value = cfg.generic_method || 'POST';
+        (document.getElementById('custom-api-key') as HTMLInputElement).value = cfg.generic_api_key || '';
+        (document.getElementById('custom-body') as HTMLTextAreaElement).value = cfg.generic_body || '';
+        (document.getElementById('custom-headers') as HTMLTextAreaElement).value = cfg.generic_headers || '';
+        (document.getElementById('custom-success-path') as HTMLInputElement).value = cfg.generic_success_path || '';
+        (document.getElementById('custom-success-value') as HTMLInputElement).value = cfg.generic_success_value || '';
+
+        const fieldsList = document.getElementById('custom-fields-list');
+        if (fieldsList) fieldsList.innerHTML = '';
+        const existingFields = Array.isArray(cfg.generic_fields) ? cfg.generic_fields : [];
+        if (existingFields.length) {
+          existingFields.forEach((f: any) => addCustomFieldRow(f.label || '', f.path || '', f.type || 'text', f.symbol || ''));
+        } else {
+          addCustomFieldRow();
+        }
+      } else {
+        if (modalTitle) modalTitle.textContent = 'Add Service';
+        if (editIdInput) editIdInput.value = '';
+        if (serviceTypeSelect) serviceTypeSelect.disabled = false;
+        if (nameInput) nameInput.value = '';
+        (document.getElementById('service-category') as HTMLSelectElement).value = '';
+
+        document.querySelectorAll('#service-form input[type="text"], #service-form input[type="password"], #service-form textarea').forEach((el: any) => {
+          if (el.id !== 'edit-service-id') el.value = '';
+        });
+        (document.getElementById('custom-method') as HTMLSelectElement).value = 'POST';
+        const fieldsList = document.getElementById('custom-fields-list');
+        if (fieldsList) fieldsList.innerHTML = '';
+        addCustomFieldRow();
+      }
+
+      const testResultEl = document.getElementById('custom-test-result');
+      if (testResultEl) testResultEl.innerHTML = '';
+
+      document.querySelectorAll('.msg-hint').forEach((el: any) => {
+        if (el.id !== 'copilot-poll-status') {
+          el.textContent = '';
+          el.className = 'msg-hint';
+        }
+      });
+
+      updateConfigSection();
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      if (modal) modal.style.display = 'none';
+    }
+
+    function escapeHtml(s: any): string {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      } as Record<string, string>)[c]);
+    }
+
+    function guessFieldLabel(path: string): string {
+      const last = path.split(/[.\[]/).pop()?.replace(/\]$/, '') || path;
+      const spaced = last.replace(/_/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+      return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+    }
+
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?/;
+
+    function guessFieldType(value: any): string {
+      if (typeof value === 'number') return 'number';
+      if (typeof value === 'string' && ISO_DATE_RE.test(value)) return 'date';
+      return 'text';
+    }
+
+    function addCustomFieldRow(label = '', path = '', type = 'text', symbol = '') {
+      const list = document.getElementById('custom-fields-list');
+      if (!list) return;
+      const row = document.createElement('div');
+      row.className = 'custom-field-row';
+      row.innerHTML = `
+        <input type="text" class="cf-label" placeholder="Label (e.g. Balance)" />
+        <input type="text" class="cf-path" placeholder="Path (e.g. balance or data.amount)" />
+        <select class="cf-type form-select">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="percentage">Percentage</option>
+          <option value="currency">Currency</option>
+          <option value="date">Date</option>
+        </select>
+        <input type="text" class="cf-symbol" placeholder="$" style="display:none;" />
+        <button type="button" class="btn btn-sm btn-danger cf-remove">✕</button>
+      `;
+      const typeSelect = row.querySelector('.cf-type') as HTMLSelectElement;
+      const symbolInput = row.querySelector('.cf-symbol') as HTMLInputElement;
+      (row.querySelector('.cf-label') as HTMLInputElement).value = label;
+      (row.querySelector('.cf-path') as HTMLInputElement).value = path;
+      typeSelect.value = type;
+      symbolInput.value = symbol;
+      symbolInput.style.display = type === 'currency' ? '' : 'none';
+      typeSelect.addEventListener('change', () => {
+        symbolInput.style.display = typeSelect.value === 'currency' ? '' : 'none';
+      });
+      row.querySelector('.cf-remove')?.addEventListener('click', () => row.remove());
+      list.appendChild(row);
+    }
+
+    document.getElementById('custom-add-field-btn')?.addEventListener('click', () => addCustomFieldRow());
+
+    function collectCustomConfig(): Record<string, any> {
+      const fieldRows = Array.from(document.querySelectorAll('#custom-fields-list .custom-field-row'));
+      const fields = fieldRows.map((row: any) => ({
+        label: (row.querySelector('.cf-label') as HTMLInputElement).value.trim(),
+        path: (row.querySelector('.cf-path') as HTMLInputElement).value.trim(),
+        type: (row.querySelector('.cf-type') as HTMLSelectElement).value,
+        symbol: (row.querySelector('.cf-symbol') as HTMLInputElement).value.trim(),
+      })).filter((f: any) => f.label && f.path);
+
+      return {
+        generic_icon_url: (document.getElementById('custom-icon-url') as HTMLInputElement).value.trim(),
+        generic_url: (document.getElementById('custom-url') as HTMLInputElement).value.trim(),
+        generic_method: (document.getElementById('custom-method') as HTMLSelectElement).value,
+        generic_api_key: (document.getElementById('custom-api-key') as HTMLInputElement).value.trim(),
+        generic_body: (document.getElementById('custom-body') as HTMLTextAreaElement).value.trim(),
+        generic_headers: (document.getElementById('custom-headers') as HTMLTextAreaElement).value.trim(),
+        generic_success_path: (document.getElementById('custom-success-path') as HTMLInputElement).value.trim(),
+        generic_success_value: (document.getElementById('custom-success-value') as HTMLInputElement).value.trim(),
+        generic_fields: fields,
+      };
+    }
+
+    document.getElementById('custom-test-btn')?.addEventListener('click', async () => {
+      const resultEl = document.getElementById('custom-test-result');
+      const token = getAuthToken();
+      if (!token || !resultEl) return;
+      resultEl.innerHTML = `<span class="msg-hint">Testing...</span>`;
+      try {
+        const r = await fetch('/api/test-custom', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ config: collectCustomConfig() })
+        });
+        const res = await r.json();
+        if (res.status !== 'ok') {
+          resultEl.innerHTML = `<span class="msg-hint error">${escapeHtml(res.error || 'Request failed')}</span>`;
+          return;
+        }
+
+        const fields = res.fields ?? [];
+        const responseFields = res.response_fields ?? [];
+        let html = `<p class="msg-hint success">✓ Connection succeeded.</p>`;
+
+        if (fields.length) {
+          html += `<div class="test-current-fields">` + fields.map((f: any) =>
+            `<div class="test-row"><span>${escapeHtml(f.label)}</span><span>${escapeHtml(f.value ?? '—')}</span></div>`
+          ).join('') + `</div>`;
+        }
+
+        html += `<p class="msg-hint" style="margin-top:10px;">Click a field below to add it:</p>`;
+        if (!responseFields.length) {
+          html += `<p class="msg-hint">No fields found in the response.</p>`;
+        } else {
+          html += `<div class="response-fields-box">` + responseFields.map((rf: any, i: number) => `
+            <div class="response-field-row">
+              <span class="rf-path" title="${escapeHtml(rf.path)}">${escapeHtml(rf.path || '(root)')}</span>
+              <span class="rf-value" title="${escapeHtml(rf.value)}">${escapeHtml(rf.value ?? 'null')}</span>
+              <button type="button" class="btn btn-sm rf-add-btn" data-idx="${i}">+ Add</button>
+            </div>
+          `).join('') + `</div>`;
+        }
+
+        resultEl.innerHTML = html;
+
+        resultEl.querySelectorAll('.rf-add-btn').forEach((btn: any) => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.idx, 10);
+            const rf = responseFields[idx];
+            if (!rf) return;
+            addCustomFieldRow(guessFieldLabel(rf.path), rf.path, guessFieldType(rf.value));
+            btn.textContent = '✓ Added';
+            btn.disabled = true;
+          });
+        });
+      } catch (e: any) {
+        resultEl.innerHTML = `<span class="msg-hint error">${escapeHtml(e.message || 'Test failed')}</span>`;
+      }
+    });
+
+    document.getElementById('add-service-btn')?.addEventListener('click', () => openModal());
+    document.getElementById('modal-close-btn')?.addEventListener('click', closeModal);
+    document.getElementById('modal-cancel-btn')?.addEventListener('click', closeModal);
+
+    // cURL Parsers
+    document.getElementById('claude-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('claude-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('claude-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('claude-org-url') as HTMLInputElement).value = res.org_url;
+          (document.getElementById('claude-cookies') as HTMLInputElement).value = res.cookies;
+          if (msg) {
+            msg.textContent = 'Successfully parsed cURL!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
+    document.getElementById('gemini-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('gemini-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('gemini-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('gemini-cookies') as HTMLInputElement).value = res.cookies;
+          (document.getElementById('gemini-at-token') as HTMLInputElement).value = res.at_token || '';
+          (document.getElementById('gemini-bl') as HTMLInputElement).value = res.bl || '';
+          (document.getElementById('gemini-sid') as HTMLInputElement).value = res.sid || '';
+          if (msg) {
+            msg.textContent = 'Successfully parsed cURL session & cookies!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
+    document.getElementById('openai-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('openai-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('openai-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('openai-session-key') as HTMLInputElement).value = res.session_key;
+          (document.getElementById('openai-org-id') as HTMLInputElement).value = res.org_id;
+          if (msg) {
+            msg.textContent = 'Successfully parsed session!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
+    document.getElementById('chatgpt-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('chatgpt-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('chatgpt-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/chatgpt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('chatgpt-cookies') as HTMLInputElement).value = res.cookies;
+          if (msg) {
+            msg.textContent = 'Successfully parsed cookies!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
+    document.getElementById('ollama_cloud-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('ollama_cloud-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('ollama_cloud-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/ollama_cloud', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value = res.cookies;
+          if (msg) {
+            msg.textContent = 'Successfully parsed cookies!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
+    // Copilot Device Login
+    let copilotPollActive = false;
+    let copilotPollTimeout: any = null;
+
+    document.getElementById('copilot-start-btn')?.addEventListener('click', async () => {
+      const infoBox = document.getElementById('copilot-device-info');
+      const urlEl = document.getElementById('copilot-url') as HTMLAnchorElement;
+      const codeEl = document.getElementById('copilot-code');
+      const statusEl = document.getElementById('copilot-poll-status');
+      const startBtn = document.getElementById('copilot-start-btn') as HTMLButtonElement;
+
+      // Stop any running poll loop
+      copilotPollActive = false;
+      if (copilotPollTimeout) clearTimeout(copilotPollTimeout);
+
+      try {
+        if (startBtn) startBtn.disabled = true;
+        const r = await fetch('/api/copilot/device/start', { method: 'POST' });
+        const data = await r.json();
+
+        if (data.user_code) {
+          if (urlEl) { urlEl.href = data.verification_uri; }
+          if (codeEl) codeEl.textContent = data.user_code;
+          if (infoBox) infoBox.style.display = 'block';
+          if (statusEl) {
+            statusEl.textContent = 'Waiting for GitHub authorization...';
+            statusEl.style.color = 'var(--text-muted)';
+          }
+
+          copilotPollActive = true;
+          let currentIntervalMs = ((data.interval || 5) + 1.5) * 1000; // Safety buffer to avoid slow_down
+
+          async function doPoll() {
+            if (!copilotPollActive) return;
+
+            try {
+              const pr = await fetch('/api/copilot/device/poll', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_code: data.device_code })
+              });
+              const pdata = await pr.json();
+
+              if (!copilotPollActive) return;
+
+              if (pdata.status === 'ok' && pdata.token) {
+                copilotPollActive = false;
+                if (startBtn) startBtn.disabled = false;
+                (document.getElementById('copilot-token') as HTMLInputElement).value = pdata.token;
+                if (statusEl) {
+                  statusEl.textContent = '✓ Authorization successful! Token populated below.';
+                  statusEl.style.color = 'var(--green)';
+                }
+                return;
+              }
+
+              if (pdata.status === 'expired' || pdata.status === 'denied' || pdata.status === 'error') {
+                copilotPollActive = false;
+                if (startBtn) startBtn.disabled = false;
+                if (statusEl) {
+                  statusEl.textContent = `Authorization ${pdata.status}: ${pdata.error || 'Failed'}`;
+                  statusEl.style.color = 'var(--red)';
+                }
+                return;
+              }
+
+              // If GitHub requested slow_down backoff, adjust interval
+              if (pdata.interval) {
+                currentIntervalMs = (pdata.interval + 1.5) * 1000;
+              }
+
+              if (copilotPollActive) {
+                copilotPollTimeout = setTimeout(doPoll, currentIntervalMs);
+              }
+            } catch (err) {
+              if (copilotPollActive) {
+                copilotPollTimeout = setTimeout(doPoll, currentIntervalMs);
+              }
+            }
+          }
+
+          copilotPollTimeout = setTimeout(doPoll, currentIntervalMs);
+        } else {
+          if (startBtn) startBtn.disabled = false;
+        }
+      } catch (e) {
+        if (startBtn) startBtn.disabled = false;
+        alert('Failed to start GitHub device flow');
+      }
+    });
+
+    // Save Form
+    document.getElementById('service-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = (document.getElementById('edit-service-id') as HTMLInputElement).value;
+      const type = serviceTypeSelect.value;
+      const name = (document.getElementById('service-name') as HTMLInputElement).value.trim();
+      const errEl = document.getElementById('modal-error');
+      if (errEl) errEl.style.display = 'none';
+
+      let config: Record<string, any> = {};
+      if (type === 'claude') {
+        config = {
+          claude_org_url: (document.getElementById('claude-org-url') as HTMLInputElement).value.trim(),
+          claude_cookies: (document.getElementById('claude-cookies') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'gemini') {
+        config = {
+          gemini_cookies: (document.getElementById('gemini-cookies') as HTMLInputElement).value.trim(),
+          gemini_at_token: (document.getElementById('gemini-at-token') as HTMLInputElement).value.trim(),
+          gemini_bl: (document.getElementById('gemini-bl') as HTMLInputElement).value.trim(),
+          gemini_sid: (document.getElementById('gemini-sid') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'deepseek') {
+        config = {
+          deepseek_api_key: (document.getElementById('deepseek-key') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'copilot') {
+        config = {
+          copilot_token: (document.getElementById('copilot-token') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'openai') {
+        config = {
+          openai_admin_key: (document.getElementById('openai-admin-key') as HTMLInputElement).value.trim(),
+          openai_session_key: (document.getElementById('openai-session-key') as HTMLInputElement).value.trim(),
+          openai_org_id: (document.getElementById('openai-org-id') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'chatgpt') {
+        config = {
+          chatgpt_cookies: (document.getElementById('chatgpt-cookies') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'ollama_cloud') {
+        config = {
+          ollama_cookies: (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'custom') {
+        config = collectCustomConfig();
+      }
+
+      const token = getAuthToken();
+      if (!token) return;
+
+      const categoryRaw = (document.getElementById('service-category') as HTMLSelectElement).value;
+      const category_id = categoryRaw ? parseInt(categoryRaw) : null;
+
+      const url = editId ? `/api/user-services/${editId}` : '/api/user-services';
+      const method = editId ? 'PUT' : 'POST';
+      const body = editId ? { name, config, category_id } : { service_type: type, name, config, category_id };
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.detail || 'Failed to save service');
+        }
+
+        closeModal();
+        await loadUserServices();
+      } catch (err: any) {
+        if (errEl) {
+          errEl.textContent = err.message || 'Failed to save service';
+          errEl.style.display = 'block';
+        }
+      }
+    });
+
+    loadCategories().then(() => loadUserServices());
+    loadAccount();
+    loadTwoFactorStatus();
+  </script>
+</Layout>

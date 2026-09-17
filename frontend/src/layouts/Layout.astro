@@ -1,0 +1,515 @@
+---
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — OpenUsage</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>
+      // Runs before first paint to avoid a flash of the wrong theme. Also
+      // keeps <meta name="theme-color"> (the Android PWA/status-bar chrome
+      // color) in sync -- it doesn't follow prefers-color-scheme on its own,
+      // and this app's manual light/dark toggle overrides the OS setting.
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var theme = stored || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#efeee6' : '#0a0a0a');
+      })();
+    </script>
+    <style is:global>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      @font-face {
+        font-family: 'Inter';
+        src: url('/fonts/InterVariable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      :root {
+        --bg: #0a0a0a;
+        --surface: #161616;
+        --surface-2: #202020;
+        --border: #272727;
+        --text: #f0f0f0;
+        --text-muted: #9e9e9e;
+        --text-dim: #c0c0c0;
+        --claude: #e0a84f;
+        --gemini: #6ea8ff;
+        --deepseek: #3fc7d6;
+        --copilot: #b39bff;
+        --openai: #34d1a3;
+        --chatgpt: #10a37f;
+        --ollama_cloud: #b0a695;
+        --custom: #8f96a3;
+        --green: #4ade80;
+        --red: #f87171;
+        --yellow: #fbbf24;
+        --orange: #fb923c;
+        --radius: 20px;
+        --radius-sm: 11px;
+        --shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #efeee6;
+          --surface: #ffffff;
+          --surface-2: #f5f4ec;
+          --border: #e7e4d8;
+          --text: #1a1915;
+          --text-muted: #736e5e;
+          --text-dim: #484538;
+          --shadow: 0 1px 2px rgba(60, 55, 30, 0.06), 0 10px 24px -14px rgba(60, 55, 30, 0.18);
+        }
+      }
+
+      :root[data-theme="light"] {
+        --bg: #efeee6;
+        --surface: #ffffff;
+        --surface-2: #f5f4ec;
+        --border: #e7e4d8;
+        --text: #1a1915;
+        --text-muted: #736e5e;
+        --text-dim: #484538;
+        --shadow: 0 1px 2px rgba(60, 55, 30, 0.06), 0 10px 24px -14px rgba(60, 55, 30, 0.18);
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        min-height: 100vh;
+        font-variant-numeric: tabular-nums;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      /* General Inline Links */
+      a, a:visited {
+        color: var(--gemini);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        transition: color 0.15s ease, text-decoration-color 0.15s ease;
+      }
+      a:hover, a:visited:hover {
+        color: color-mix(in srgb, var(--gemini) 80%, white);
+        text-decoration: underline;
+      }
+
+      /* Unified Button System */
+      .btn, .btn:visited {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        text-decoration: none;
+        box-shadow: var(--shadow);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+      }
+
+      .btn:hover, .btn:visited:hover, .btn:focus-visible {
+        background: var(--surface-2);
+        border-color: color-mix(in srgb, var(--border) 60%, var(--text) 20%);
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .btn-primary, .btn-primary:visited {
+        background: var(--text);
+        color: var(--bg);
+        border: 1px solid var(--text);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+      }
+
+      .btn-primary:hover, .btn-primary:visited:hover, .btn-primary:focus-visible {
+        background: color-mix(in srgb, var(--text) 88%, var(--bg));
+        color: var(--bg);
+        border-color: color-mix(in srgb, var(--text) 88%, var(--bg));
+        text-decoration: none;
+        opacity: 0.95;
+      }
+
+      .btn-secondary, .btn-secondary:visited {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .btn-secondary:hover, .btn-secondary:visited:hover, .btn-secondary:focus-visible {
+        background: color-mix(in srgb, var(--surface-2) 80%, var(--text) 10%);
+        border-color: color-mix(in srgb, var(--border) 60%, var(--text) 20%);
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .btn-danger, .btn-danger:visited {
+        background: color-mix(in srgb, var(--red) 10%, var(--surface));
+        border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+        color: var(--red);
+        text-decoration: none;
+      }
+
+      .btn-danger:hover, .btn-danger:visited:hover, .btn-danger:focus-visible {
+        background: color-mix(in srgb, var(--red) 20%, var(--surface));
+        border-color: var(--red);
+        color: var(--red);
+        text-decoration: none;
+      }
+
+      .btn-lg, .btn-lg:visited {
+        padding: 12px 28px;
+        font-size: 14.5px;
+        font-weight: 700;
+        border-radius: var(--radius-sm);
+      }
+
+      nav {
+        padding: 16px 28px 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: color-mix(in srgb, var(--bg) 85%, transparent);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+
+      .nav-brand, .nav-brand:visited {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        font-size: 15px;
+        color: var(--text);
+        text-decoration: none;
+        margin-right: 16px;
+        letter-spacing: -0.3px;
+      }
+      .nav-brand img {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+      }
+
+      nav a.nav-link, nav a.nav-link:visited {
+        color: var(--text-muted);
+        text-decoration: none;
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: color 0.1s, background 0.1s;
+      }
+
+      nav a.nav-link:hover, nav a.nav-link:visited:hover { color: var(--text); background: var(--surface-2); }
+      nav a.nav-link.active { color: var(--text); background: var(--surface-2); }
+
+      .nav-controls {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-btn {
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-dim);
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .icon-btn:hover { color: var(--text); background: var(--surface-2); }
+      .icon-btn.active { color: var(--green); border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--surface)); }
+      .icon-btn svg { width: 16px; height: 16px; }
+      .edit-toggle .icon-check { display: none; }
+      .edit-toggle.active .icon-pencil { display: none; }
+      .edit-toggle.active .icon-check { display: block; }
+
+      .theme-toggle .icon-sun { display: none; }
+      :root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+      :root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+
+      .user-dropdown-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .user-menu-btn {
+        height: 34px;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 0 12px;
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+        transition: all 0.15s ease;
+      }
+
+      .user-menu-btn:hover {
+        background: var(--surface-2);
+      }
+
+      .user-menu-avatar {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--gemini);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .dropdown-caret {
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        transition: transform 0.2s ease;
+      }
+
+      .user-menu-btn.open .dropdown-caret {
+        transform: rotate(180deg);
+      }
+
+      .user-dropdown-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 6px);
+        width: 170px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        padding: 6px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .dropdown-item, .dropdown-item:visited {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-dim);
+        text-decoration: none;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        border: none;
+        width: 100%;
+        box-sizing: border-box;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .dropdown-item:hover, .dropdown-item:visited:hover, .dropdown-item.active, .dropdown-item.active:visited {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+
+      .dropdown-item-danger, .dropdown-item-danger:visited {
+        color: var(--red);
+      }
+
+      .dropdown-item-danger:hover, .dropdown-item-danger:visited:hover {
+        background: color-mix(in srgb, var(--red) 15%, var(--surface));
+        color: var(--red);
+      }
+
+      .dropdown-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      .dropdown-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 28px 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="/" class="nav-brand"><img src="/favicon.svg" alt="" width="20" height="20" /> OpenUsage</a>
+      <div class="nav-controls">
+        <button class="icon-btn edit-toggle" id="edit-toggle" type="button" aria-label="Edit dashboard layout" title="Edit layout" style="display: none;">
+          <svg class="icon-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="icon-btn theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <div id="user-dropdown-container" class="user-dropdown-container" style="display: none;">
+          <button id="user-menu-btn" class="user-menu-btn" type="button" aria-expanded="false" aria-haspopup="true">
+            <span id="user-avatar" class="user-menu-avatar"></span>
+            <span id="user-name-display"></span>
+            <svg class="dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div id="user-dropdown-menu" class="user-dropdown-menu" style="display: none;">
+            <a href="/" class="dropdown-item" id="nav-home">
+              <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              Dashboard
+            </a>
+            <a href="/settings" class="dropdown-item" id="nav-settings">
+              <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Settings
+            </a>
+            <a href="/about" class="dropdown-item" id="nav-about">
+              <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              About
+            </a>
+            <div class="dropdown-divider"></div>
+            <button id="logout-btn" class="dropdown-item dropdown-item-danger" type="button">
+              <svg class="dropdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main>
+      <slot />
+    </main>
+    <script>
+      const path = window.location.pathname;
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('auth_user');
+
+      // Pages reachable while signed out: the login form itself, the OIDC
+      // round trip landing page, and the forgot/reset-password flow.
+      const PUBLIC_PATHS = ['/login', '/oidc-callback', '/forgot-password', '/reset-password'];
+      if (!token && !PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+        window.location.href = '/login';
+      }
+
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          const containerEl = document.getElementById('user-dropdown-container');
+          const userNameEl = document.getElementById('user-name-display');
+          const userAvatarEl = document.getElementById('user-avatar');
+          if (containerEl && userNameEl) {
+            userNameEl.textContent = user.username;
+            if (userAvatarEl && user.username) {
+              userAvatarEl.textContent = user.username.charAt(0).toUpperCase();
+            }
+            containerEl.style.display = 'inline-block';
+          }
+        } catch (e) {}
+      }
+
+      // Dropdown toggle
+      const userMenuBtn = document.getElementById('user-menu-btn');
+      const userDropdownMenu = document.getElementById('user-dropdown-menu');
+
+      userMenuBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = userDropdownMenu?.style.display === 'flex';
+        if (userDropdownMenu) userDropdownMenu.style.display = isOpen ? 'none' : 'flex';
+        userMenuBtn.classList.toggle('open', !isOpen);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (userDropdownMenu && !userDropdownMenu.contains(e.target as Node) && !userMenuBtn?.contains(e.target as Node)) {
+          userDropdownMenu.style.display = 'none';
+          userMenuBtn?.classList.remove('open');
+        }
+      });
+
+      document.getElementById('logout-btn')?.addEventListener('click', async () => {
+        if (token) {
+          try {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          } catch (e) {}
+        }
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.href = '/login';
+      });
+
+      if (path === '/' || path === '/index.html') {
+        document.getElementById('nav-home')?.classList.add('active');
+        const editBtn = document.getElementById('edit-toggle');
+        if (editBtn) editBtn.style.display = 'inline-flex';
+      } else if (path.startsWith('/settings')) {
+        document.getElementById('nav-settings')?.classList.add('active');
+      } else if (path.startsWith('/about')) {
+        document.getElementById('nav-about')?.classList.add('active');
+      }
+
+      document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', next === 'light' ? '#efeee6' : '#0a0a0a');
+      });
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

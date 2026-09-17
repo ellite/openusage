@@ -1,0 +1,1608 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="OpenUsage">
+  <div class="page-header" id="page-header">
+    <div>
+      <h1>Usage</h1>
+      <p class="subtitle" id="last-updated">Loading...</p>
+    </div>
+    <button id="refresh-btn" class="btn">↺ Refresh</button>
+  </div>
+
+  <div id="dashboard-grid">
+    <div class="grid">
+      <div class="empty-card">
+        <p class="subtitle">Loading usage data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste-cURL popup: quick fix for a service whose cookies expired -->
+  <div id="curl-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="curl-modal-title">Paste new cURL</h3>
+        <button id="curl-modal-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="curl-box">
+          <label>Import from cURL</label>
+          <textarea id="curl-modal-textarea" placeholder="Paste the 'Copy as cURL' request here..."></textarea>
+          <button type="button" id="curl-modal-save-btn" class="btn btn-sm">Save &amp; Refresh</button>
+          <span id="curl-modal-msg" class="msg-hint"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+  }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px; }
+  .subtitle { color: var(--text-muted); font-size: 14px; margin: 0; }
+
+  .btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--text); color: var(--bg); border: none; }
+  .btn-primary:hover { opacity: 0.9; }
+
+  :global(.welcome-empty-container) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 44px 32px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    max-width: 780px;
+    margin: 12px auto 0;
+  }
+  :global(.welcome-hero-badge) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  :global(.welcome-logo) {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  }
+  :global(.provider-pill-stack) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.provider-pill) {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--surface);
+    margin: 0 -4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  :global(.welcome-title) {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 0 0 10px;
+    color: var(--text);
+  }
+  :global(.welcome-description) {
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.6;
+    max-width: 560px;
+    margin: 0 auto 32px;
+  }
+  :global(.feature-highlights) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+    text-align: left;
+  }
+  :global(.feature-card) {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 18px 16px;
+  }
+  :global(.feature-icon) {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gemini);
+    margin-bottom: 10px;
+  }
+  :global(.feature-icon svg) {
+    width: 17px;
+    height: 17px;
+  }
+  :global(.feature-card h4) {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--text);
+  }
+  :global(.feature-card p) {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+  :global(.welcome-actions) {
+    display: flex;
+    justify-content: center;
+  }
+  :global(.btn-lg) {
+    padding: 12px 28px;
+    font-size: 14.5px;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: opacity 0.15s;
+  }
+  :global(.btn-lg:hover) {
+    opacity: 0.9;
+  }
+
+  /* Built at runtime via innerHTML when categories are in play (nested
+     per-category grids), so it must stay :global() to match those too. */
+  :global(.grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  :global(.category-section) {
+    margin-bottom: 32px;
+  }
+  :global(.category-section:last-child) {
+    margin-bottom: 0;
+  }
+  :global(.category-section h2) {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 14px;
+    color: var(--text-dim);
+  }
+  :global(.category-empty-hint) {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: 13px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  :global(.grid.drag-over-empty .category-empty-hint) {
+    border-color: var(--gemini);
+    color: var(--text);
+  }
+  /* Feedback when dropping into a non-empty grid's empty space (below the
+     last card), where there's no hint element for the rule above to style. */
+  :global(body.edit-mode .grid.drag-over-empty) {
+    outline: 2px dashed var(--gemini);
+    outline-offset: 6px;
+    border-radius: var(--radius);
+  }
+
+  :global(.card) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    position: relative;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  :global(.card.dragging) {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  :global(.card.drag-over) {
+    border-color: var(--gemini);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--gemini) 40%, transparent);
+  }
+
+  :global(.accent-bar) {
+    position: absolute;
+    left: 0;
+    top: 16px;
+    bottom: 16px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--border);
+    z-index: 1;
+  }
+  :global(.accent-bar.ok)     { background: var(--green); }
+  :global(.accent-bar.warn)   { background: var(--yellow); }
+  :global(.accent-bar.orange) { background: var(--orange); }
+  :global(.accent-bar.error)  { background: var(--red); }
+  :global(.accent-bar.none)   { background: var(--border); }
+
+  :global(.card-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px 24px;
+  }
+  :global(.service-info) { display: flex; align-items: center; gap: 10px; }
+  :global(.drag-handle) {
+    display: none;
+    cursor: grab;
+    color: var(--text-muted);
+    line-height: 1;
+    padding: 2px;
+  }
+  :global(.drag-handle:active) { cursor: grabbing; }
+  :global(.drag-handle svg) { width: 14px; height: 14px; display: block; }
+  :global(body.edit-mode .drag-handle) { display: inline-flex; }
+
+  :global(.icon) {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  :global(.icon img) { width: 18px; height: 18px; object-fit: contain; }
+  :global(.icon .icon-light) { display: none; }
+  :global(.icon .icon-dark)  { display: block; }
+  :global(:root[data-theme="light"] .icon .icon-light) { display: block; }
+  :global(:root[data-theme="light"] .icon .icon-dark)  { display: none; }
+
+  :global(.claude-bg)   { background: color-mix(in srgb, var(--claude) 18%, var(--surface)); }
+  :global(.gemini-bg)   { background: color-mix(in srgb, var(--gemini) 18%, var(--surface)); }
+  :global(.deepseek-bg) { background: color-mix(in srgb, var(--deepseek) 18%, var(--surface)); }
+  :global(.copilot-bg)  { background: color-mix(in srgb, var(--copilot) 18%, var(--surface)); }
+  :global(.openai-bg)   { background: color-mix(in srgb, var(--openai) 18%, var(--surface)); }
+  :global(.chatgpt-bg)  { background: color-mix(in srgb, var(--chatgpt) 18%, var(--surface)); }
+  :global(.ollama_cloud-bg) { background: color-mix(in srgb, var(--ollama_cloud) 18%, var(--surface)); }
+  :global(.custom-bg)   { background: color-mix(in srgb, var(--custom) 18%, var(--surface)); }
+
+  :global(.service-name) { font-weight: 700; font-size: 16px; }
+
+  :global(.badge) {
+    font-size: 12px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  :global(.ok)    { background: color-mix(in srgb, var(--green) 18%, var(--surface)); color: var(--green); }
+  :global(.error) { background: color-mix(in srgb, var(--red) 18%, var(--surface)); color: var(--red); }
+  :global(.none)  { background: var(--surface-2); color: var(--text-muted); }
+  :global(.stale) { background: color-mix(in srgb, var(--yellow) 18%, var(--surface)); color: var(--yellow); }
+
+  :global(.card-body) { padding: 4px 20px 20px 24px; min-height: 110px; }
+
+  /* Hero ring block */
+  :global(.hero) {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 6px 0 16px;
+  }
+  :global(.ring-wrap) { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+  :global(.ring) { width: 100%; height: 100%; transform: rotate(-90deg); }
+  :global(.ring-track) { fill: none; stroke: var(--surface-2); stroke-width: 5; }
+  :global(.ring-fill) { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+  :global(.ring-fill.bar-low)    { stroke: var(--green); }
+  :global(.ring-fill.bar-mid)    { stroke: var(--yellow); }
+  :global(.ring-fill.bar-orange) { stroke: var(--orange); }
+  :global(.ring-fill.bar-high)   { stroke: var(--red); }
+  :global(.ring-center) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.ring-pct) { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  :global(.ring-pct-sign) { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+
+  :global(.hero-meta) { flex: 1; min-width: 0; }
+  :global(.hero-label) { font-size: 13.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
+  :global(.hero-resets-cap) { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); }
+  :global(.hero-resets-val) { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin-top: 1px; }
+  :global(.hero-resets-date) { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  :global(.hero-resets-idle) { font-size: 13px; font-weight: 500; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
+
+  /* Secondary limit rows */
+  :global(.lrow) { padding: 10px 0; }
+  :global(.lrow-top) { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  :global(.lrow-label) { font-size: 14px; font-weight: 500; color: var(--text-dim); }
+  :global(.lrow-extra) { color: var(--text-muted); font-size: 12.5px; }
+  :global(.lrow-pct) { font-size: 14px; font-weight: 700; }
+  :global(.lrow-pct.bar-low)    { color: var(--green); }
+  :global(.lrow-pct.bar-mid)    { color: var(--yellow); }
+  :global(.lrow-pct.bar-orange) { color: var(--orange); }
+  :global(.lrow-pct.bar-high)   { color: var(--red); }
+  :global(.lrow-resets) { margin-top: 6px; }
+  :global(.lrow-resets-countdown) { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  :global(.lrow-resets-date) { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  :global(.row) {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+  }
+  :global(.lbl) { color: var(--text-muted); font-size: 13.5px; }
+  :global(.val) { font-weight: 600; font-size: 14px; }
+  :global(.val.big) { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  :global(.val.green)  { color: var(--green); }
+  :global(.val.yellow) { color: var(--yellow); }
+  :global(.val.orange) { color: var(--orange); }
+  :global(.val.red)    { color: var(--red); }
+  :global(.divider) { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  :global(.bar-wrap) {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 999px;
+  }
+  :global(.bar-fill) {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease;
+  }
+  :global(.bar-tick) {
+    position: absolute;
+    top: 50%;
+    width: 2px;
+    height: 16px;
+    border-radius: 1px;
+    background: var(--text-dim);
+    opacity: 0.55;
+    transform: translate(-50%, -50%);
+  }
+  :global(.bar-fill.bar-low)    { background: var(--green); }
+  :global(.bar-fill.bar-mid)    { background: var(--yellow); }
+  :global(.bar-fill.bar-orange) { background: var(--orange); }
+  :global(.bar-fill.bar-high)   { background: var(--red); }
+
+  :global(.notice) { color: var(--text-muted); font-size: 13px; line-height: 1.7; padding: 6px 0; }
+  :global(.notice a) { color: var(--gemini); text-decoration: none; }
+  :global(.notice a:hover) { text-decoration: underline; }
+  :global(.err-msg) { color: var(--red); font-size: 13px; padding: 6px 0; }
+  /* Built at runtime via innerHTML (card body strings), so it never gets
+     Astro's scoped-style attribute -- must stay :global() to match. */
+  :global(.stale-curl-link) {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: 6px;
+    color: var(--gemini);
+    font-size: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  :global(.stale-curl-link:hover) { opacity: 0.8; }
+  :global(.stale-msg) { color: var(--yellow); font-size: 12px; padding: 6px 0 2px; }
+
+  .empty-card {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+  }
+
+  @keyframes skeleton-pulse {
+    0% { opacity: 0.25; }
+    50% { opacity: 0.65; }
+    100% { opacity: 0.25; }
+  }
+  :global(.skeleton-body) {
+    padding: 12px 20px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  :global(.skeleton-line) {
+    background: var(--surface-2);
+    border-radius: 8px;
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+  }
+  :global(.skeleton-title) { height: 16px; width: 45%; margin-bottom: 2px; }
+  :global(.skeleton-bar) { height: 28px; width: 100%; border-radius: 8px; }
+  @keyframes spin {
+    100% { transform: rotate(360deg); }
+  }
+  :global(.spinner-icon) {
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+    vertical-align: -1px;
+    margin-right: 4px;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .icon-btn-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-body {
+    padding: 24px;
+  }
+  .curl-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+  .curl-box label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .curl-box textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    height: 100px;
+    resize: vertical;
+  }
+  .curl-box textarea:focus {
+    border-color: var(--gemini);
+  }
+  .msg-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 4px;
+  }
+  .msg-hint.success { color: var(--green); }
+  .msg-hint.error { color: var(--red); }
+</style>
+
+<script>
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    window.location.href = '/login';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
+  }
+
+  function fmtCountdown(iso) {
+    if (!iso) return null;
+    const diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return 'Resetting now';
+
+    const totalMins = Math.floor(diff / 60000);
+    const days = Math.floor(totalMins / (60 * 24));
+    const hours = Math.floor((totalMins % (60 * 24)) / 60);
+    const mins = totalMins % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${mins}m`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
+  }
+
+  function fmtCountdownFull(iso) {
+    if (!iso) return null;
+    const diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return 'Resetting now';
+
+    const totalMins = Math.floor(diff / 60000);
+    const days = Math.floor(totalMins / (60 * 24));
+    const hours = Math.floor((totalMins % (60 * 24)) / 60);
+    const mins = totalMins % 60;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    if (days === 0 && mins > 0) parts.push(`${mins} min${mins > 1 ? 's' : ''}`);
+
+    return parts.join(' ') || '1 min';
+  }
+
+  function parseFlexibleDate(val: any): Date | null {
+    if (val == null || val === '') return null;
+    if (typeof val === 'number') {
+      const ms = val < 1e12 ? val * 1000 : val;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function escapeHtml(s: any): string {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    } as Record<string, string>)[c]);
+  }
+
+  const SEVERITY_TO_BAR_CLASS: Record<string, string> = {
+    ok: 'bar-low',
+    warn: 'bar-mid',
+    orange: 'bar-orange',
+    error: 'bar-high',
+  };
+
+  function getUsageSeverity(usedPct: number, resetsAt: string | null = null, customWindowMs: number | null = null) {
+    const pct = Math.max(0, Math.min(100, usedPct));
+    if (pct >= 95) return 'error';
+
+    let pctSev = 'ok';
+    if (pct >= 85) pctSev = 'orange';
+    else if (pct >= 75) pctSev = 'warn';
+
+    if (!resetsAt) return pctSev;
+
+    const resetTime = new Date(resetsAt).getTime();
+    const now = Date.now();
+    const timeRemainingMs = resetTime - now;
+
+    if (isNaN(resetTime) || timeRemainingMs <= 0) {
+      return pct >= 80 ? 'error' : pctSev;
+    }
+
+    let windowMs = customWindowMs;
+    if (!windowMs) {
+      if (timeRemainingMs <= 7 * 24 * 3600 * 1000 + 3600 * 1000) {
+        windowMs = 7 * 24 * 3600 * 1000;
+      } else {
+        windowMs = 30 * 24 * 3600 * 1000;
+      }
+    }
+
+    const timeElapsedMs = windowMs - timeRemainingMs;
+    if (timeElapsedMs <= 5 * 60 * 1000 || pct <= 0) {
+      return pctSev;
+    }
+
+    const f = (timeElapsedMs / windowMs) * (100 / pct);
+
+    let rateSev = 'ok';
+    if (f <= 0.5) rateSev = 'error';
+    else if (f <= 2 / 3) rateSev = 'orange';
+    else if (f <= 1.0) rateSev = 'warn';
+    else rateSev = 'ok';
+
+    const order: Record<string, number> = { ok: 0, warn: 1, orange: 2, error: 3 };
+    return order[rateSev] > order[pctSev] ? rateSev : pctSev;
+  }
+
+  function worstSeverity(severities: any[]) {
+    const order: Record<string, number> = { ok: 0, warn: 1, orange: 2, error: 3 };
+    return severities.reduce((worst, s) => {
+      const current = typeof s === 'string' ? s : getUsageSeverity(s);
+      return order[current] > order[worst] ? current : worst;
+    }, 'ok');
+  }
+
+  function severityToBarClass(sev: string) {
+    return SEVERITY_TO_BAR_CLASS[sev] || 'bar-low';
+  }
+
+  function setAccent(svcId: string | number, cls: string) {
+    const el = document.getElementById(`accent-${svcId}`);
+    if (el) el.className = `accent-bar ${cls}`;
+  }
+
+  function setBadge(el: HTMLElement | null, text: string, cls: string) {
+    if (!el) return;
+    el.textContent = text;
+    el.className = `badge ${cls}`;
+  }
+
+  function ring(leftPct: number, usedPct: number, resetsAt: string | null = null, windowMs: number | null = null) {
+    const sev = getUsageSeverity(usedPct, resetsAt, windowMs);
+    const cls = severityToBarClass(sev);
+    const r = 46;
+    const c = 2 * Math.PI * r;
+    const offset = c * (1 - leftPct / 100);
+    return `
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 112 112">
+          <circle class="ring-track" cx="56" cy="56" r="${r}"></circle>
+          <circle class="ring-fill ${cls}" cx="56" cy="56" r="${r}"
+            stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-pct">${leftPct}<span class="ring-pct-sign">%</span></div>
+        </div>
+      </div>`;
+  }
+
+  function heroBlock(label: string, block: any, idleText: string | null = null, windowMs: number | null = null, extra: string = '') {
+    if (!block || typeof block.utilization !== 'number') return '';
+    const usedPct = Math.round(block.utilization);
+    const leftPct = 100 - usedPct;
+    const countdown = fmtCountdown(block.resets_at);
+    return `
+      <div class="hero">
+        ${ring(leftPct, usedPct, block.resets_at, windowMs)}
+        <div class="hero-meta">
+          <div class="hero-label">${label}${extra ? ` <span class="lrow-extra">${extra}</span>` : ''}</div>
+          ${block.resets_at ? `
+            ${countdown ? `<div class="hero-resets-cap">Resets in</div><div class="hero-resets-val">${countdown}</div>` : ''}
+            <div class="hero-resets-date">${fmtDate(block.resets_at)}</div>
+          ` : `
+            <div class="hero-resets-idle">${idleText || 'No active session'}</div>
+          `}
+        </div>
+      </div>`;
+  }
+
+  function listRow(label: string, usedPctRaw: number, resetsAt: string | null, extra: string = '', windowMs: number | null = null) {
+    const pct = Math.round(usedPctRaw);
+    const sev = getUsageSeverity(pct, resetsAt, windowMs);
+    const cls = severityToBarClass(sev);
+    const countdown = resetsAt ? fmtCountdownFull(resetsAt) : null;
+    return `
+      <div class="lrow">
+        <div class="lrow-top">
+          <span class="lrow-label">${label}${extra ? ` <span class="lrow-extra">${extra}</span>` : ''}</span>
+          <span class="lrow-pct ${cls}">${100 - pct}% left</span>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-fill ${cls}" style="width:${pct}%"></div>
+          <div class="bar-tick" style="left:${pct}%"></div>
+        </div>
+        ${resetsAt ? `
+          <div class="lrow-resets">
+            <div class="lrow-resets-countdown">Resets in ${countdown}</div>
+            <div class="lrow-resets-date">${fmtDate(resetsAt)}</div>
+          </div>` : ''}
+      </div>`;
+  }
+
+  function rowTwoLine(line1: string, line2: string) {
+    return `
+      <div class="lrow-resets" style="padding: 4px 0;">
+        <div class="lrow-resets-countdown">${line1}</div>
+        <div class="lrow-resets-date">${line2}</div>
+      </div>`;
+  }
+
+  function row(label: string, value: string, cls: string = '') {
+    return `<div class="row"><span class="lbl">${label}</span><span class="val ${cls}">${value}</span></div>`;
+  }
+
+  function planRow(plan: string | null) {
+    if (plan) return row('Plan', plan);
+    return `<div class="row" style="visibility: hidden;" aria-hidden="true"><span class="lbl">Plan</span><span class="val">&nbsp;</span></div>`;
+  }
+
+  let allServices: any[] = [];
+  let allCategories: any[] = [];
+
+  // Groups services into their category sections, in category order, with an
+  // "Uncategorized" bucket for services with no (or a deleted) category.
+  // When no categories exist at all, returns one anonymous group so the
+  // caller renders a single flat grid -- identical to the pre-categories
+  // markup for anyone not using the feature.
+  function groupServicesByCategory(services: any[]): { id: number | null; name: string | null; services: any[] }[] {
+    if (!allCategories.length) {
+      return [{ id: null, name: null, services }];
+    }
+    const byCategory = new Map<number, any[]>();
+    for (const cat of allCategories) byCategory.set(cat.id, []);
+    const uncategorized: any[] = [];
+    for (const svc of services) {
+      if (svc.category_id != null && byCategory.has(svc.category_id)) {
+        byCategory.get(svc.category_id)!.push(svc);
+      } else {
+        uncategorized.push(svc);
+      }
+    }
+    const groups = allCategories.map(cat => ({ id: cat.id, name: cat.name, services: byCategory.get(cat.id) || [] }));
+    if (uncategorized.length) groups.push({ id: null, name: 'Uncategorized', services: uncategorized });
+    return groups;
+  }
+
+  function renderGroupedHtml(services: any[], cardRenderer: (svc: any) => string): string {
+    return groupServicesByCategory(services).map(g => {
+      const cardsHtml = g.services.length
+        ? g.services.map(cardRenderer).join('')
+        : `<div class="category-empty-hint">No services in this category yet -- drag one here, or assign it from <a href="/settings">Settings</a>.</div>`;
+      const catAttr = g.id ?? '';
+
+      if (g.name === null && allCategories.length === 0) {
+        return `<div class="grid" data-category-id="${catAttr}">${cardsHtml}</div>`;
+      }
+      return `
+        <section class="category-section">
+          ${g.name ? `<h2>${escapeHtml(g.name)}</h2>` : ''}
+          <div class="grid" data-category-id="${catAttr}">${cardsHtml}</div>
+        </section>`;
+    }).join('');
+  }
+
+  // Service types whose auth is a pasted cURL (cookie-based session), so a
+  // stale/expired card can offer a "paste new cURL" shortcut instead of a
+  // trip to Settings. Each maps the /api/import-curl/<type> response onto
+  // the config fields that endpoint's cookies actually live in.
+  const CURL_IMPORT_CONFIG: Record<string, { endpoint: string; apply: (res: any, cfg: any) => any }> = {
+    claude: {
+      endpoint: '/api/import-curl/claude',
+      apply: (res, cfg) => ({ ...cfg, claude_org_url: res.org_url, claude_cookies: res.cookies }),
+    },
+    gemini: {
+      endpoint: '/api/import-curl/gemini',
+      apply: (res, cfg) => ({
+        ...cfg,
+        gemini_cookies: res.cookies,
+        gemini_at_token: res.at_token,
+        gemini_bl: res.bl,
+        gemini_sid: res.sid,
+      }),
+    },
+    openai: {
+      endpoint: '/api/import-curl/openai',
+      apply: (res, cfg) => ({ ...cfg, openai_session_key: res.session_key, openai_org_id: res.org_id }),
+    },
+    chatgpt: {
+      endpoint: '/api/import-curl/chatgpt',
+      apply: (res, cfg) => ({ ...cfg, chatgpt_cookies: res.cookies }),
+    },
+    ollama_cloud: {
+      endpoint: '/api/import-curl/ollama_cloud',
+      apply: (res, cfg) => ({ ...cfg, ollama_cookies: res.cookies }),
+    },
+  };
+
+  function curlLinkHtml(svcId: number, type: string): string {
+    if (!CURL_IMPORT_CONFIG[type]) return '';
+    return ` <button type="button" class="stale-curl-link" data-svc-id="${svcId}">Paste new cURL</button>`;
+  }
+
+  function getServiceIconHtml(type: string, svcId?: number | string): string {
+    const iconMap: Record<string, string> = {
+      claude: '<img src="/icons/claude.svg" alt="" />',
+      gemini: '<img src="/icons/gemini.svg" alt="" />',
+      deepseek: '<img src="/icons/deepseek.svg" alt="" />',
+      copilot: '<img class="icon-light" src="/icons/copilot-black.svg" alt="" /><img class="icon-dark" src="/icons/copilot-white.svg" alt="" />',
+      openai: '<img src="/icons/openai.svg" alt="" />',
+      chatgpt: '<img src="/icons/chatgpt.svg" alt="" />',
+      ollama_cloud: '<img src="/icons/ollama.png" alt="" />',
+      custom: '<img src="/icons/custom.svg" alt="" />',
+    };
+    if (type === 'custom' && svcId != null) {
+      const svc = allServices.find((s: any) => s.id === svcId);
+      const url = svc?.config?.generic_icon_url;
+      if (url && /^https?:\/\//i.test(url)) {
+        return `<img src="${escapeHtml(url)}" alt="" onerror="this.onerror=null;this.src='/icons/custom.svg';" />`;
+      }
+    }
+    return iconMap[type] || '';
+  }
+
+  function renderSkeletonCard(svc: any) {
+    const svcId = svc.id;
+    const type = svc.service_type;
+    const name = svc.name;
+
+    const isEditMode = document.body.classList.contains('edit-mode');
+    return `
+      <div class="card skeleton-card" id="card-${svcId}" draggable="${isEditMode ? 'true' : 'false'}" data-id="${svcId}">
+        <span class="accent-bar none" id="accent-${svcId}"></span>
+        <div class="card-header">
+          <div class="service-info">
+            <span class="drag-handle" title="Drag to reorder">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
+            </span>
+            <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
+            <span class="service-name">${name}</span>
+          </div>
+          <div class="status">
+            <span class="badge" id="badge-${svcId}">Fetching...</span>
+          </div>
+        </div>
+        <div class="card-body skeleton-body" id="body-${svcId}">
+          <div class="skeleton-line skeleton-title"></div>
+          <div class="skeleton-line skeleton-bar"></div>
+          <div class="skeleton-line skeleton-sub"></div>
+        </div>
+      </div>`;
+  }
+
+  function renderServiceCard(item: any) {
+    const svcId = item.id;
+    const type = item.service_type;
+    const name = item.name;
+    const result = item.result || {};
+    const isEditMode = document.body.classList.contains('edit-mode');
+
+    return `
+      <div class="card" id="card-${svcId}" draggable="${isEditMode ? 'true' : 'false'}" data-id="${svcId}">
+        <span class="accent-bar none" id="accent-${svcId}"></span>
+        <div class="card-header">
+          <div class="service-info">
+            <span class="drag-handle" title="Drag to reorder">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
+            </span>
+            <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
+            <span class="service-name">${name}</span>
+          </div>
+          <div class="status">
+            <span class="badge" id="badge-${svcId}">—</span>
+          </div>
+        </div>
+        <div class="card-body" id="body-${svcId}"></div>
+      </div>`;
+  }
+
+  function updateCardContent(item: any) {
+    const svcId = item.id;
+    const type = item.service_type;
+    const result = item.result || {};
+    const body = document.getElementById(`body-${svcId}`);
+    const badge = document.getElementById(`badge-${svcId}`);
+    if (!body || !badge) return;
+
+    if (!result.configured) {
+      setBadge(badge, 'Not configured', 'none');
+      setAccent(svcId, 'none');
+      body.innerHTML = '<p class="notice">Configure this service in <a href="/settings">Settings</a>.</p>';
+      return;
+    }
+    if (result.status === 'error') {
+      setBadge(badge, 'Error', 'error');
+      setAccent(svcId, 'error');
+      body.innerHTML = `<p class="err-msg">${result.error}${curlLinkHtml(svcId, type)}</p>`;
+      return;
+    }
+
+    if (result.cached && result.stale_error) {
+      setBadge(badge, 'Stale', 'stale');
+    } else {
+      setBadge(badge, 'Connected', 'ok');
+    }
+    const staleWarning = (result.cached && result.stale_error)
+      ? `<p class="stale-msg">⚠ Showing cached data from ${fmtDate(result.fetched_at)} — live refresh failed: ${result.stale_error}${curlLinkHtml(svcId, type)}</p>`
+      : '';
+    const d = result.data ?? {};
+
+    if (type === 'claude') {
+      let html = planRow(d.plan);
+      const severities: any[] = [];
+      const hasHero = d.five_hour && typeof d.five_hour.utilization === 'number';
+      const hero = hasHero ? d.five_hour : d.seven_day;
+      const heroLabel = hasHero ? 'Session (5h)' : 'Weekly';
+      const heroWindow = hasHero ? 5 * 3600 * 1000 : 7 * 24 * 3600 * 1000;
+      const secondary = hasHero ? d.seven_day : null;
+      const secondaryWindow = 7 * 24 * 3600 * 1000;
+
+      if (hero && typeof hero.utilization === 'number') {
+        severities.push(getUsageSeverity(hero.utilization, hero.resets_at, heroWindow));
+        html += heroBlock(heroLabel, hero, hasHero ? 'No active session' : null, heroWindow);
+      }
+      if (secondary && typeof secondary.utilization === 'number') {
+        severities.push(getUsageSeverity(secondary.utilization, secondary.resets_at, secondaryWindow));
+        html += listRow('Weekly', secondary.utilization, secondary.resets_at, '', secondaryWindow);
+      }
+
+      const currencySymbol = (c: string) => c === 'EUR' ? '€' : c === 'USD' ? '$' : `${c} `;
+      const spend = d.spend;
+      if (spend?.enabled && spend.used && spend.limit) {
+        const fmtMoney = (m: any) => (m.amount_minor / 10 ** m.exponent).toFixed(m.exponent);
+        const symbol = currencySymbol(spend.used.currency);
+        html += `<hr class="divider">` + row('Extra usage', `${symbol}${fmtMoney(spend.used)} / ${symbol}${fmtMoney(spend.limit)}`);
+      }
+
+      const credits = d.prepaid_credits;
+      if (credits?.balance != null) {
+        html += `<hr class="divider">`;
+        const symbol = currencySymbol(credits.currency);
+        html += row('Credit balance', `${symbol}${credits.balance.toFixed(2)}`, 'big');
+        if (credits.next_expires_at) {
+          html += rowTwoLine('Expires in ' + fmtCountdownFull(credits.next_expires_at), fmtDate(credits.next_expires_at));
+        }
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'gemini') {
+      const limits = Array.isArray(d.limits) ? d.limits : [];
+      let html = planRow(d.plan);
+      const severities: any[] = [];
+      const GEMINI_WINDOW_MS: Record<string, number> = {
+        Session: 5 * 3600 * 1000,
+        Weekly: 7 * 24 * 3600 * 1000,
+      };
+      limits.forEach((limit: any, i: number) => {
+        const pct = limit.percent_used ?? 0;
+        const limitWindowMs = GEMINI_WINDOW_MS[limit.label] ?? 7 * 24 * 3600 * 1000;
+        severities.push(getUsageSeverity(pct, limit.resets_at, limitWindowMs));
+        if (i === 0) {
+          html += heroBlock(limit.label ?? 'Limit', { utilization: pct, resets_at: limit.resets_at }, null, limitWindowMs);
+        } else {
+          html += listRow(limit.label ?? 'Limit', pct, limit.resets_at, '', limitWindowMs);
+        }
+      });
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'copilot') {
+      const planMap: Record<string, string> = { individual: 'Individual', business: 'Business', enterprise: 'Enterprise' };
+      const severities: any[] = [];
+      const windowMs = 30 * 24 * 3600 * 1000;
+      let hasHero = false;
+      let html = planRow(planMap[d.plan] ?? d.plan);
+
+      function quotaBlock(label: string, q: any) {
+        if (!q) return '';
+        if (q.unlimited) return row(label, 'Unlimited', 'green');
+        const pctUsed = Math.round(100 - (q.percent_remaining ?? 0));
+        severities.push(getUsageSeverity(pctUsed, d.quota_reset_date, windowMs));
+        const extra = `${q.remaining ?? '—'} / ${q.entitlement ?? '—'}`;
+        return listRow(label, pctUsed, d.quota_reset_date, extra, windowMs);
+      }
+
+      const pr = d.premium_requests;
+      if (pr && !pr.unlimited && typeof pr.percent_remaining === 'number') {
+        const pctUsed = Math.round(100 - pr.percent_remaining);
+        severities.push(getUsageSeverity(pctUsed, d.quota_reset_date, windowMs));
+        hasHero = true;
+        html += heroBlock('Monthly', { utilization: pctUsed, resets_at: d.quota_reset_date }, null, windowMs);
+        html += listRow('Premium requests', pctUsed, d.quota_reset_date, `${pr.remaining ?? '—'} / ${pr.entitlement ?? '—'}`, windowMs);
+      } else if (pr?.unlimited) {
+        html += row('Premium requests', 'Unlimited', 'green');
+      }
+
+      html += quotaBlock('Chat messages', d.chat);
+      html += quotaBlock('Completions', d.completions);
+
+      if (d.quota_reset_date && !hasHero) {
+        html += `<hr class="divider">` + rowTwoLine('Resets in ' + fmtCountdownFull(d.quota_reset_date), fmtDate(d.quota_reset_date));
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'deepseek') {
+      const infos = d.balance_infos ?? [];
+      const usd = infos.find((i: any) => i.currency === 'USD') ?? infos[0];
+      let html = planRow(null);
+      if (usd) {
+        const total = parseFloat(usd.total_balance ?? 0).toFixed(2);
+        const topped = parseFloat(usd.topped_up_balance ?? 0).toFixed(2);
+        const granted = parseFloat(usd.granted_balance ?? 0).toFixed(2);
+        const available = d.is_available !== false;
+        html += row('Balance', `$${total}`, 'big') +
+          `<hr class="divider">` +
+          row('Paid credits', `$${topped}`) +
+          row('Free credits', `$${granted}`) +
+          row('Status', available ? '● Available' : '● Unavailable', available ? 'green' : 'red');
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, 'ok');
+
+    } else if (type === 'openai') {
+      const symbol = d.currency === 'usd' ? '$' : d.currency === 'eur' ? '€' : `${d.currency} `;
+      const spend = (d.spend_this_month ?? 0).toFixed(2);
+      let html = '';
+      const sub = d.subscription;
+      const cb = d.credit_balance;
+
+      if (sub?.plan_title) {
+        const planExtra = sub.trust_tier ? `${sub.trust_tier}` : '';
+        html += row('Plan', sub.plan_title + (planExtra ? ` (${planExtra})` : ''));
+      } else {
+        html += planRow(null);
+      }
+
+      if (cb?.total_available != null) {
+        html += row('Credit balance', `${symbol}${cb.total_available.toFixed(2)}`, 'big');
+        html += `<hr class="divider">`;
+      }
+      html += row('Spend this month', `${symbol}${spend}`, cb?.total_available != null ? '' : 'big');
+
+      const items = Object.entries(d.by_line_item ?? {}).sort((a: any, b: any) => b[1] - a[1]);
+      if (items.length) {
+        html += `<hr class="divider">`;
+        items.slice(0, 5).forEach(([label, value]: any) => {
+          html += row(label, `${symbol}${value.toFixed(2)}`);
+        });
+      }
+      if (d.period_start) html += `<hr class="divider">` + row('Since', fmtDate(d.period_start));
+      const sessionWarning = d.session_error
+        ? `<p class="stale-msg">⚠ ${d.session_error}</p>`
+        : '';
+      body.innerHTML = staleWarning + sessionWarning + html;
+      setAccent(svcId, 'ok');
+
+    } else if (type === 'chatgpt') {
+      let html = planRow(d.plan);
+      const severities: any[] = [];
+      const hasHero = d.five_hour && typeof d.five_hour.utilization === 'number';
+      const hero = hasHero ? d.five_hour : d.seven_day;
+      const heroLabel = hasHero ? 'Codex (5h)' : 'Codex (Weekly)';
+      const heroWindow = hasHero ? 5 * 3600 * 1000 : 7 * 24 * 3600 * 1000;
+      const secondary = hasHero ? d.seven_day : null;
+      const secondaryWindow = 7 * 24 * 3600 * 1000;
+
+      if (hero && typeof hero.utilization === 'number') {
+        severities.push(getUsageSeverity(hero.utilization, hero.resets_at, heroWindow));
+        html += heroBlock(heroLabel, hero, hasHero ? 'No active session' : null, heroWindow);
+      }
+      if (secondary && typeof secondary.utilization === 'number') {
+        severities.push(getUsageSeverity(secondary.utilization, secondary.resets_at, secondaryWindow));
+        html += listRow('Codex weekly', secondary.utilization, secondary.resets_at, '', secondaryWindow);
+      }
+
+      if (d.email) html += `<hr class="divider">` + row('Account', d.email);
+      if (d.has_active_subscription != null) {
+        html += row('Subscription', d.has_active_subscription ? '● Active' : '● Inactive', d.has_active_subscription ? 'green' : 'red');
+      }
+      if (d.will_renew != null) html += row('Auto-renew', d.will_renew ? 'On' : 'Off');
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'ollama_cloud') {
+      let html = planRow(null);
+      const severities: any[] = [];
+      if (typeof d.percent_used === 'number') {
+        severities.push(getUsageSeverity(d.percent_used, d.resets_at ?? null, null));
+        html += heroBlock('Free usage', { utilization: d.percent_used, resets_at: d.resets_at ?? null }, null, null);
+      }
+      if (d.balance != null) {
+        html += `<hr class="divider">`;
+        html += row('Usage credits', `$${Number(d.balance).toFixed(2)}`, 'big');
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'custom') {
+      const fields = Array.isArray(d.fields) ? d.fields : [];
+      const severities: any[] = [];
+      let html = '';
+      if (!fields.length) {
+        html += '<p class="notice">No fields matched — check the field paths in Settings.</p>';
+      } else {
+        fields.forEach((f: any, idx: number) => {
+          const ftype = f.type || 'text';
+          const label = escapeHtml(f.label);
+          const bigCls = idx === 0 ? 'big' : '';
+
+          if (ftype === 'percentage') {
+            const pct = Math.max(0, Math.min(100, Number(f.value) || 0));
+            severities.push(getUsageSeverity(pct, null, null));
+            html += listRow(label, pct, null, '', null);
+
+          } else if (ftype === 'currency') {
+            const num = Number(f.value);
+            const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
+            html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), bigCls);
+
+          } else if (ftype === 'date') {
+            const d2 = parseFlexibleDate(f.value);
+            if (!d2) {
+              html += row(label, '—');
+            } else {
+              const iso = d2.toISOString();
+              const isFuture = d2.getTime() > Date.now();
+              const displayVal = isFuture ? `${fmtDate(iso)} (in ${fmtCountdown(iso)})` : fmtDate(iso);
+              html += row(label, escapeHtml(displayVal));
+            }
+
+          } else {
+            let val = f.value;
+            if (ftype === 'number' && typeof val === 'number') {
+              val = Number.isInteger(val) ? val.toString() : val.toFixed(2);
+            } else if (val == null) {
+              val = '—';
+            }
+            html += row(label, escapeHtml(val), bigCls);
+          }
+        });
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+    }
+  }
+
+  let dragSrcEl: HTMLElement | null = null;
+
+  function initDragAndDrop() {
+    const root = document.getElementById('dashboard-grid');
+    if (!root) return;
+    // Cards live in one or more nested .grid containers -- a single one when
+    // no categories are configured, or one per category section otherwise.
+    // Dropping a card onto another grid (a card in it, or its empty space)
+    // moves the card there AND persists the new category to the backend.
+    root.querySelectorAll('.grid').forEach((g: any) => initDragAndDropForGrid(g));
+  }
+
+  function targetCategoryOf(grid: HTMLElement): number | null {
+    const raw = grid.dataset.categoryId;
+    return raw ? parseInt(raw) : null;
+  }
+
+  function refreshEmptyHint(grid: HTMLElement) {
+    const hasCards = grid.querySelector('.card') != null;
+    const hint = grid.querySelector('.category-empty-hint');
+    if (hasCards && hint) hint.remove();
+    if (!hasCards && !hint) {
+      grid.innerHTML = '<div class="category-empty-hint">No services in this category yet -- drag one here, or assign it from <a href="/settings">Settings</a>.</div>';
+    }
+  }
+
+  async function persistCategoryIfChanged(svcId: number, newCategoryId: number | null) {
+    const svc = allServices.find((s: any) => s.id === svcId);
+    if (!svc || svc.category_id === newCategoryId) return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    try {
+      await fetch(`/api/user-services/${svcId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: svc.name, config: svc.config, category_id: newCategoryId }),
+      });
+      svc.category_id = newCategoryId;
+    } catch (e) {
+      console.error('Failed to move service to category', e);
+    }
+  }
+
+  function initDragAndDropForGrid(grid: HTMLElement) {
+    const isEditMode = document.body.classList.contains('edit-mode');
+
+    grid.querySelectorAll('.card').forEach((card: any) => {
+      card.setAttribute('draggable', isEditMode ? 'true' : 'false');
+
+      card.addEventListener('dragstart', (e: DragEvent) => {
+        if (!document.body.classList.contains('edit-mode')) {
+          e.preventDefault();
+          return false;
+        }
+        dragSrcEl = card;
+        card.classList.add('dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.dataset.id);
+        }
+      });
+
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        // The dragged card may have landed in a different grid than the one
+        // this listener was attached in, so clear highlights everywhere.
+        document.querySelectorAll('.card.drag-over').forEach((c: any) => c.classList.remove('drag-over'));
+        document.querySelectorAll('.grid.drag-over-empty').forEach((g: any) => g.classList.remove('drag-over-empty'));
+        saveCardOrder();
+      });
+
+      card.addEventListener('dragover', (e: DragEvent) => {
+        if (!document.body.classList.contains('edit-mode')) return;
+        e.preventDefault();
+        if (card !== dragSrcEl) card.classList.add('drag-over');
+      });
+
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+
+      card.addEventListener('drop', (e: DragEvent) => {
+        if (!document.body.classList.contains('edit-mode')) return;
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        if (dragSrcEl && dragSrcEl !== card) {
+          const srcGrid = dragSrcEl.closest('.grid') as HTMLElement | null;
+          const cards = Array.from(grid.querySelectorAll('.card'));
+          const srcIdx = cards.indexOf(dragSrcEl);
+          const tgtIdx = cards.indexOf(card);
+          if (srcIdx < tgtIdx) {
+            card.after(dragSrcEl);
+          } else {
+            card.before(dragSrcEl);
+          }
+          const svcId = parseInt(dragSrcEl.dataset.id || '0');
+          persistCategoryIfChanged(svcId, targetCategoryOf(grid));
+          refreshEmptyHint(grid);
+          if (srcGrid && srcGrid !== grid) refreshEmptyHint(srcGrid);
+        }
+      });
+    });
+
+    // Dropping on the grid's own empty space (below the last card, or into
+    // an empty category) -- card-level handlers above only cover drops onto
+    // an existing card, so this is what makes an empty category a valid target.
+    grid.addEventListener('dragover', (e: DragEvent) => {
+      if (!document.body.classList.contains('edit-mode')) return;
+      if ((e.target as HTMLElement).closest('.card')) return;
+      e.preventDefault();
+      grid.classList.add('drag-over-empty');
+    });
+
+    grid.addEventListener('dragleave', (e: DragEvent) => {
+      if ((e.target as HTMLElement).closest('.card')) return;
+      grid.classList.remove('drag-over-empty');
+    });
+
+    grid.addEventListener('drop', (e: DragEvent) => {
+      if (!document.body.classList.contains('edit-mode')) return;
+      if ((e.target as HTMLElement).closest('.card')) return;
+      e.preventDefault();
+      grid.classList.remove('drag-over-empty');
+      if (dragSrcEl) {
+        const srcGrid = dragSrcEl.closest('.grid') as HTMLElement | null;
+        grid.appendChild(dragSrcEl);
+        const svcId = parseInt(dragSrcEl.dataset.id || '0');
+        persistCategoryIfChanged(svcId, targetCategoryOf(grid));
+        refreshEmptyHint(grid);
+        if (srcGrid && srcGrid !== grid) refreshEmptyHint(srcGrid);
+      }
+    });
+  }
+
+  function saveCardOrder() {
+    const grid = document.getElementById('dashboard-grid');
+    if (!grid) return;
+    const order = Array.from(grid.querySelectorAll('.card')).map((c: any) => c.dataset.id);
+    localStorage.setItem('dash_order', JSON.stringify(order));
+  }
+
+  function getSavedOrder(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem('dash_order') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function updateCardError(svcId: number | string, type: string, name: string, msg: string) {
+    const card = document.getElementById(`card-${svcId}`);
+    if (card) {
+      card.className = 'card';
+      card.innerHTML = `
+        <span class="accent-bar error" id="accent-${svcId}"></span>
+        <div class="card-header">
+          <div class="service-info">
+            <span class="drag-handle" title="Drag to reorder">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
+            </span>
+            <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
+            <span class="service-name">${name}</span>
+          </div>
+          <div class="status">
+            <span class="badge error">Error</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="err-msg">${msg}</div>
+        </div>`;
+    }
+  }
+
+  async function loadDashboard(isForce = false) {
+    const grid = document.getElementById('dashboard-grid');
+    const headerEl = document.getElementById('page-header');
+    const updatedEl = document.getElementById('last-updated');
+    if (!grid) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    try {
+      // 1. Instantly fetch user's configured services and categories (takes ~5-10ms)
+      const [res, catRes] = await Promise.all([
+        fetch('/api/user-services', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/categories', { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+
+      if (res.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.href = '/login';
+        return;
+      }
+
+      allCategories = catRes.ok ? await catRes.json() : [];
+      const services = await res.json();
+      allServices = Array.isArray(services) ? services : [];
+      if (!Array.isArray(services) || services.length === 0) {
+        if (headerEl) headerEl.style.display = 'none';
+        grid.innerHTML = `
+          <div class="welcome-empty-container" style="grid-column: 1 / -1;">
+            <div class="welcome-hero-badge">
+              <div class="provider-pill-stack">
+                <span class="provider-pill claude-bg"><img src="/icons/claude.svg" alt="Claude" width="16" height="16" /></span>
+                <span class="provider-pill gemini-bg"><img src="/icons/gemini.svg" alt="Gemini" width="16" height="16" /></span>
+                <span class="provider-pill deepseek-bg"><img src="/icons/deepseek.svg" alt="DeepSeek" width="16" height="16" /></span>
+                <span class="provider-pill copilot-bg"><img src="/icons/copilot-white.svg" alt="Copilot" width="16" height="16" /></span>
+                <span class="provider-pill openai-bg"><img src="/icons/openai.svg" alt="OpenAI" width="16" height="16" /></span>
+                <span class="provider-pill chatgpt-bg"><img src="/icons/chatgpt.svg" alt="ChatGPT" width="16" height="16" /></span>
+              </div>
+            </div>
+
+            <h2 class="welcome-title">Track Your AI Usage & Quotas</h2>
+            <p class="welcome-description">
+              Connect your Claude, Gemini, DeepSeek, Copilot, OpenAI, or ChatGPT accounts to monitor active rate limits, weekly quotas, and credit balances in real time.
+            </p>
+
+            <div class="feature-highlights">
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h4>Real-Time Monitoring</h4>
+                <p>Instant visibility into 5-hour session limits, weekly usage caps, and credit balances.</p>
+              </div>
+
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <h4>Smart Burn Alerts</h4>
+                <p>Automatic rate-based severity calculations alert you before you run out of credits.</p>
+              </div>
+
+              <div class="feature-card">
+                <div class="feature-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                </div>
+                <h4>Multi-Account Support</h4>
+                <p>Add and manage multiple instances per AI provider side-by-side effortlessly.</p>
+              </div>
+            </div>
+
+            <div class="welcome-actions">
+              <a href="/settings" class="btn btn-primary btn-lg">+ Connect Your First Service</a>
+            </div>
+          </div>`;
+        if (updatedEl) updatedEl.textContent = 'No active services';
+        return;
+      }
+
+      if (headerEl) headerEl.style.display = 'flex';
+
+      // 2. Order items based on saved preference
+      const savedOrder = getSavedOrder();
+      if (savedOrder.length) {
+        services.sort((a: any, b: any) => {
+          const idxA = savedOrder.indexOf(a.id.toString());
+          const idxB = savedOrder.indexOf(b.id.toString());
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+      }
+
+      // 3. Render skeleton cards on initial load only. On refresh, show badge spinner on existing cards!
+      const hasExistingCards = grid.querySelectorAll('.card:not(.skeleton-card)').length > 0;
+
+      if (!hasExistingCards) {
+        grid.innerHTML = renderGroupedHtml(services, renderSkeletonCard);
+        initDragAndDrop();
+      } else {
+        services.forEach((svc: any) => {
+          const badge = document.getElementById(`badge-${svc.id}`);
+          if (badge) {
+            badge.className = 'badge none';
+            badge.innerHTML = `
+              <svg class="spinner-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Updating...`;
+          }
+        });
+      }
+
+      if (updatedEl) updatedEl.textContent = 'Updating usage...';
+
+      // 4. Fetch usage for each service independently in parallel and update cards as they complete!
+      let completedCount = 0;
+      services.forEach(async (svc: any) => {
+        try {
+          const url = isForce ? `/api/usage/${svc.id}?force=true` : `/api/usage/${svc.id}`;
+          const ures = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (ures.ok) {
+            const item = await ures.json();
+            const existingCard = document.getElementById(`card-${svc.id}`);
+            if (existingCard) {
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = renderServiceCard(item);
+              const newCard = tempDiv.firstElementChild;
+              if (newCard) {
+                existingCard.replaceWith(newCard);
+                updateCardContent(item);
+                initDragAndDrop();
+              }
+            }
+          } else {
+            updateCardError(svc.id, svc.service_type, svc.name, 'Failed to fetch usage');
+          }
+        } catch (e) {
+          updateCardError(svc.id, svc.service_type, svc.name, 'Network error');
+        } finally {
+          completedCount++;
+          if (completedCount === services.length && updatedEl) {
+            updatedEl.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+          }
+        }
+      });
+
+    } catch (err) {
+      grid.innerHTML = `
+        <div class="empty-card" style="grid-column: 1 / -1;">
+          <p class="subtitle" style="color: var(--red);">Failed to connect to OpenUsage backend API</p>
+        </div>`;
+    }
+  }
+
+  document.getElementById('edit-toggle')?.addEventListener('click', function (this: HTMLElement) {
+    const isEditMode = this.classList.toggle('active');
+    document.body.classList.toggle('edit-mode', isEditMode);
+    const grid = document.getElementById('dashboard-grid');
+    if (grid) {
+      grid.querySelectorAll('.card').forEach((c: any) => {
+        c.setAttribute('draggable', isEditMode ? 'true' : 'false');
+      });
+    }
+  });
+
+  document.getElementById('refresh-btn')?.addEventListener('click', () => loadDashboard(true));
+
+  // Paste-cURL popup: cards get re-rendered on every refresh, so the trigger
+  // button never keeps a stable listener -- delegate from the document instead.
+  let curlModalSvcId: number | null = null;
+
+  function openCurlModal(svcId: number) {
+    curlModalSvcId = svcId;
+    const modal = document.getElementById('curl-modal');
+    const textarea = document.getElementById('curl-modal-textarea') as HTMLTextAreaElement;
+    const msg = document.getElementById('curl-modal-msg');
+    if (textarea) textarea.value = '';
+    if (msg) { msg.textContent = ''; msg.className = 'msg-hint'; }
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeCurlModal() {
+    curlModalSvcId = null;
+    const modal = document.getElementById('curl-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  document.addEventListener('click', (e: MouseEvent) => {
+    const target = (e.target as HTMLElement)?.closest('.stale-curl-link') as HTMLElement | null;
+    if (!target) return;
+    const svcId = Number(target.dataset.svcId);
+    if (svcId) openCurlModal(svcId);
+  });
+
+  document.getElementById('curl-modal-close-btn')?.addEventListener('click', closeCurlModal);
+  document.getElementById('curl-modal')?.addEventListener('click', (e: MouseEvent) => {
+    if (e.target === document.getElementById('curl-modal')) closeCurlModal();
+  });
+
+  document.getElementById('curl-modal-save-btn')?.addEventListener('click', async () => {
+    const msg = document.getElementById('curl-modal-msg');
+    const svcId = curlModalSvcId;
+    if (!svcId) return;
+
+    const svc = allServices.find((s: any) => s.id === svcId);
+    const importCfg = svc ? CURL_IMPORT_CONFIG[svc.service_type] : null;
+    if (!svc || !importCfg) {
+      if (msg) { msg.textContent = 'Unsupported service type'; msg.className = 'msg-hint error'; }
+      return;
+    }
+
+    const curl = (document.getElementById('curl-modal-textarea') as HTMLTextAreaElement).value;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      const parseRes = await fetch(importCfg.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ curl }),
+      });
+      const parsed = await parseRes.json();
+      if (parsed.status !== 'ok') throw new Error(parsed.error || 'Failed to parse cURL');
+
+      const newConfig = importCfg.apply(parsed, svc.config || {});
+      const putRes = await fetch(`/api/user-services/${svcId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: svc.name, config: newConfig, category_id: svc.category_id ?? null }),
+      });
+      if (!putRes.ok) {
+        const d = await putRes.json();
+        throw new Error(d.detail || 'Failed to save service');
+      }
+
+      closeCurlModal();
+      await loadDashboard(true);
+    } catch (e: any) {
+      if (msg) {
+        msg.textContent = e.message || 'Failed to parse cURL';
+        msg.className = 'msg-hint error';
+      }
+    }
+  });
+
+  loadDashboard();
+  setInterval(() => loadDashboard(false), 60000);
+</script>

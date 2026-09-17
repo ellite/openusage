@@ -1,0 +1,59 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Page not found">
+  <div class="notfound-container">
+    <div class="notfound-card">
+      <div class="notfound-code">404</div>
+      <h1>Out of quota on this one</h1>
+      <p class="notfound-sub">There's no page here — check the URL, or head back to your dashboard.</p>
+      <a href="/" class="btn btn-primary btn-lg">Back to dashboard</a>
+    </div>
+  </div>
+
+  <style>
+    .notfound-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(80vh - 100px);
+      padding: 20px 0;
+      text-align: center;
+    }
+    .notfound-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 44px 32px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .notfound-code {
+      font-size: 64px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--claude), var(--gemini) 45%, var(--deepseek) 75%, var(--copilot));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 16px;
+    }
+    .notfound-card h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    .notfound-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+  </style>
+</Layout>

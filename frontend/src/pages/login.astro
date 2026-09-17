@@ -1,0 +1,482 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Login - OpenUsage">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <img src="/favicon.svg" alt="OpenUsage Logo" width="42" height="42" />
+        <h2>Welcome to OpenUsage</h2>
+        <p class="auth-subtitle">Monitor and track your AI service quotas</p>
+      </div>
+
+      <div id="oidc-block" style="display: none;">
+        <a href="/api/oidc/authorize" class="btn btn-primary oidc-btn" id="oidc-btn">Sign in with SSO</a>
+        <div class="auth-divider"><span>or</span></div>
+      </div>
+
+      <div class="auth-tabs" id="auth-tabs">
+        <button type="button" class="tab-btn active" id="tab-login">Log In</button>
+        <button type="button" class="tab-btn" id="tab-register">Create Account</button>
+      </div>
+
+      <div id="account-disabled-msg" class="notice-disabled" style="display: none;">
+        Account creation has been disabled by the administrator.
+      </div>
+
+      <form id="auth-form" class="auth-form">
+        <div id="auth-error" class="auth-error" style="display: none;"></div>
+
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username" />
+        </div>
+
+        <div class="form-group" id="email-group" style="display: none;">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+          <div class="password-label-row">
+            <label for="password">Password</label>
+            <a href="/forgot-password" id="forgot-password-link" style="display: none;">Forgot password?</a>
+          </div>
+          <div class="password-input-wrap">
+            <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password" />
+            <button type="button" id="toggle-pw-btn" class="toggle-pw-btn" aria-label="Toggle password visibility" title="Show password">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.77 21.77 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary">Log In</button>
+      </form>
+
+      <form id="twofactor-form" class="auth-form" style="display: none;">
+        <div id="twofactor-error" class="auth-error" style="display: none;"></div>
+        <p class="subtitle">Enter the 6-digit code from your authenticator app, or a recovery code.</p>
+        <div class="form-group">
+          <label for="twofactor-code">Code</label>
+          <input type="text" id="twofactor-code" name="code" placeholder="123456" required autocomplete="one-time-code" autocapitalize="none" spellcheck="false" />
+        </div>
+        <button type="submit" id="twofactor-submit-btn" class="btn btn-primary">Verify</button>
+        <button type="button" id="twofactor-cancel-btn" class="btn">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(80vh - 100px);
+      padding: 20px 0;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow);
+    }
+    .auth-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .auth-header img {
+      margin-bottom: 12px;
+    }
+    .auth-header h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .auth-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .auth-tabs {
+      display: flex;
+      background: var(--surface-2);
+      padding: 3px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .form-group input {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .form-group input:focus {
+      border-color: var(--gemini);
+    }
+    .password-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .password-input-wrap input {
+      padding-right: 40px;
+    }
+    .toggle-pw-btn {
+      position: absolute;
+      right: 8px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .toggle-pw-btn:hover {
+      color: var(--text);
+    }
+    .toggle-pw-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+    .btn-primary {
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      padding: 11px;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+    .auth-error {
+      background: color-mix(in srgb, var(--red) 15%, var(--surface));
+      border: 1px solid var(--red);
+      color: var(--red);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+    }
+    .notice-disabled {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 12.5px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .oidc-btn {
+      display: flex;
+      text-decoration: none;
+      margin-top: 0;
+    }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .password-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .password-label-row a {
+      font-size: 12.5px;
+      text-decoration: none;
+    }
+    #twofactor-form .btn {
+      margin-top: 4px;
+    }
+  </style>
+
+  <script>
+    let isRegisterMode = false;
+    let enableAccountCreation = true;
+    let pendingChallengeToken: string | null = null;
+
+    async function checkAuthConfig() {
+      try {
+        const res = await fetch('/api/auth/config');
+        const data = await res.json();
+        enableAccountCreation = data.enable_account_creation !== false;
+        const regTab = document.getElementById('tab-register');
+        if (!enableAccountCreation && regTab) {
+          regTab.style.display = 'none';
+        }
+      } catch (e) {
+        console.error('Failed to check auth config', e);
+      }
+    }
+
+    async function checkOidcConfig() {
+      try {
+        const res = await fetch('/api/oidc/config');
+        const data = await res.json();
+        if (data.enabled) {
+          const block = document.getElementById('oidc-block');
+          const btn = document.getElementById('oidc-btn');
+          if (btn) btn.textContent = `Sign in with ${data.provider_name}`;
+          if (block) block.style.display = 'block';
+          if (data.disable_password_login) {
+            document.getElementById('auth-tabs')?.style.setProperty('display', 'none');
+            document.getElementById('auth-form')?.style.setProperty('display', 'none');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to check OIDC config', e);
+      }
+    }
+
+    async function checkPasswordResetStatus() {
+      try {
+        const res = await fetch('/api/auth/password-reset-status');
+        const data = await res.json();
+        if (data.enabled) {
+          document.getElementById('forgot-password-link')?.style.setProperty('display', 'inline');
+        }
+      } catch (e) {
+        console.error('Failed to check password reset status', e);
+      }
+    }
+
+    function showOidcError() {
+      const params = new URLSearchParams(window.location.search);
+      const oidcError = params.get('oidc_error');
+      if (!oidcError) return;
+      const errorEl = document.getElementById('auth-error');
+      if (errorEl) {
+        errorEl.textContent = oidcError;
+        errorEl.style.display = 'block';
+      }
+    }
+
+    function setMode(register) {
+      isRegisterMode = register;
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const submitBtn = document.getElementById('submit-btn');
+      const errorEl = document.getElementById('auth-error');
+      const emailGroup = document.getElementById('email-group');
+      if (errorEl) errorEl.style.display = 'none';
+      if (emailGroup) emailGroup.style.display = register ? 'flex' : 'none';
+
+      if (register) {
+        tabLogin?.classList.remove('active');
+        tabRegister?.classList.add('active');
+        if (submitBtn) submitBtn.textContent = 'Create Account';
+      } else {
+        tabRegister?.classList.remove('active');
+        tabLogin?.classList.add('active');
+        if (submitBtn) submitBtn.textContent = 'Log In';
+      }
+    }
+
+    function showTwoFactorForm(challengeToken: string) {
+      pendingChallengeToken = challengeToken;
+      const authForm = document.getElementById('auth-form');
+      const twofactorForm = document.getElementById('twofactor-form');
+      const oidcBlock = document.getElementById('oidc-block');
+      const tabs = document.getElementById('auth-tabs');
+      if (authForm) authForm.style.display = 'none';
+      if (oidcBlock) oidcBlock.style.display = 'none';
+      if (tabs) tabs.style.display = 'none';
+      if (twofactorForm) twofactorForm.style.display = 'flex';
+      document.getElementById('twofactor-code')?.focus();
+    }
+
+    function hideTwoFactorForm() {
+      pendingChallengeToken = null;
+      const authForm = document.getElementById('auth-form');
+      const twofactorForm = document.getElementById('twofactor-form');
+      const tabs = document.getElementById('auth-tabs');
+      if (authForm) authForm.style.display = 'flex';
+      if (tabs) tabs.style.display = 'flex';
+      if (twofactorForm) twofactorForm.style.display = 'none';
+    }
+
+    document.getElementById('tab-login')?.addEventListener('click', () => setMode(false));
+    document.getElementById('tab-register')?.addEventListener('click', () => {
+      if (!enableAccountCreation) {
+        const disabledMsg = document.getElementById('account-disabled-msg');
+        if (disabledMsg) disabledMsg.style.display = 'block';
+        return;
+      }
+      setMode(true);
+    });
+
+    const togglePwBtn = document.getElementById('toggle-pw-btn');
+    togglePwBtn?.addEventListener('click', () => {
+      const passwordInput = document.getElementById('password') as HTMLInputElement;
+      const eyeIcon = togglePwBtn.querySelector('.icon-eye') as HTMLElement;
+      const eyeOffIcon = togglePwBtn.querySelector('.icon-eye-off') as HTMLElement;
+      if (!passwordInput) return;
+
+      const isPw = passwordInput.type === 'password';
+      passwordInput.type = isPw ? 'text' : 'password';
+      if (eyeIcon) eyeIcon.style.display = isPw ? 'none' : 'block';
+      if (eyeOffIcon) eyeOffIcon.style.display = isPw ? 'block' : 'none';
+      togglePwBtn.title = isPw ? 'Hide password' : 'Show password';
+    });
+
+    document.getElementById('auth-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const usernameInput = document.getElementById('username') as HTMLInputElement;
+      const passwordInput = document.getElementById('password') as HTMLInputElement;
+      const emailInput = document.getElementById('email') as HTMLInputElement;
+      const errorEl = document.getElementById('auth-error');
+      const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+      if (!usernameInput || !passwordInput) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (submitBtn) submitBtn.disabled = true;
+
+      const endpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+      const body: Record<string, string> = {
+        username: usernameInput.value.trim(),
+        password: passwordInput.value,
+      };
+      if (isRegisterMode && emailInput?.value.trim()) {
+        body.email = emailInput.value.trim();
+      }
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Authentication failed');
+        }
+
+        if (data.requires_2fa) {
+          showTwoFactorForm(data.challenge_token);
+          return;
+        }
+
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        window.location.href = '/';
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'An error occurred';
+          errorEl.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('twofactor-cancel-btn')?.addEventListener('click', hideTwoFactorForm);
+
+    document.getElementById('twofactor-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const codeInput = document.getElementById('twofactor-code') as HTMLInputElement;
+      const errorEl = document.getElementById('twofactor-error');
+      const submitBtn = document.getElementById('twofactor-submit-btn') as HTMLButtonElement;
+      if (!codeInput || !pendingChallengeToken) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challenge_token: pendingChallengeToken, code: codeInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Verification failed');
+        }
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        window.location.href = '/';
+      } catch (err: any) {
+        if (errorEl) {
+          errorEl.textContent = err.message || 'An error occurred';
+          errorEl.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    // Check if already logged in
+    if (localStorage.getItem('auth_token')) {
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      }).then(r => {
+        if (r.ok) window.location.href = '/';
+      }).catch(() => {});
+    }
+
+    checkAuthConfig();
+    checkOidcConfig();
+    checkPasswordResetStatus();
+    showOidcError();
+  </script>
+</Layout>

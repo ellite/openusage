@@ -1,0 +1,150 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Signing in - OpenUsage">
+  <div class="auth-container">
+    <div class="auth-card">
+      <p class="subtitle" id="oidc-status">Signing you in…</p>
+      <div id="oidc-error" class="auth-error" style="display: none;"></div>
+
+      <form id="twofactor-form" class="auth-form" style="display: none;">
+        <div class="form-group">
+          <label for="twofactor-code">Two-factor code</label>
+          <input type="text" id="twofactor-code" name="code" placeholder="123456" required autocomplete="one-time-code" autocapitalize="none" spellcheck="false" />
+        </div>
+        <button type="submit" class="btn btn-primary">Verify</button>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(80vh - 100px);
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .auth-error {
+      background: color-mix(in srgb, var(--red) 15%, var(--surface));
+      border: 1px solid var(--red);
+      color: var(--red);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      margin-top: 12px;
+      text-align: left;
+    }
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 16px;
+      text-align: left;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+    .form-group input {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <script>
+    let pendingChallengeToken: string | null = null;
+
+    function showError(message: string) {
+      const statusEl = document.getElementById('oidc-status');
+      const errorEl = document.getElementById('oidc-error');
+      if (statusEl) statusEl.style.display = 'none';
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+      }
+    }
+
+    async function finishWithToken(token: string) {
+      try {
+        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error('Could not verify session');
+        const data = await res.json();
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        window.location.href = '/';
+      } catch (err: any) {
+        showError(err.message || 'Sign-in failed');
+      }
+    }
+
+    document.getElementById('twofactor-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const codeInput = document.getElementById('twofactor-code') as HTMLInputElement;
+      if (!codeInput || !pendingChallengeToken) return;
+      try {
+        const res = await fetch('/api/auth/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ challenge_token: pendingChallengeToken, code: codeInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Verification failed');
+        await finishWithToken(data.token);
+      } catch (err: any) {
+        showError(err.message || 'Verification failed');
+      }
+    });
+
+    function start() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const challengeToken = params.get('challenge_token');
+      const oidcError = params.get('error');
+
+      if (oidcError) {
+        showError(oidcError);
+        return;
+      }
+      if (challengeToken) {
+        pendingChallengeToken = challengeToken;
+        const statusEl = document.getElementById('oidc-status');
+        const form = document.getElementById('twofactor-form');
+        if (statusEl) statusEl.textContent = 'Enter your two-factor code to finish signing in.';
+        if (form) form.style.display = 'flex';
+        document.getElementById('twofactor-code')?.focus();
+        return;
+      }
+      if (!token) {
+        showError('Sign-in failed');
+        return;
+      }
+      finishWithToken(token);
+    }
+
+    start();
+  </script>
+</Layout>

@@ -1,0 +1,40 @@
+# Runtime data — nothing under here should ever be tracked, whatever it's
+# named (a suffix like .db.bak-<timestamp> wouldn't match a narrower pattern)
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+frontend/node_modules/
+frontend/dist/
+frontend/.astro/
+backend/.venv/
+backend/static/
+.env*
+*.env
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+__pycache__/
+*.pyc
+
+# Common AI files
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+copilot-instructions.md
+.claude/
+.codex/
+.agents/
+.cursor/
+.aider*
+.copilot/
+.continue/
+.codeium/
+.windsurf/
+.github/copilot*
