@@ -90,8 +90,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'OpenUsage', {
       body: data.body || '',
       data: { url: data.url || '/' },
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
     })
   );
 });

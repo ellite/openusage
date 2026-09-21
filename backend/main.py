@@ -979,7 +979,7 @@ async def copilot_device_poll(item: Optional[CopilotPollItem] = None):
 # notifications on for that user; unsubscribing every device turns it off.
 @app.get("/api/push/public-key")
 async def push_public_key():
-    return {"public_key": push_notifier.VAPID_PUBLIC_KEY}
+    return {"public_key": push_notifier.VAPID_PUBLIC_KEY if push_notifier.is_configured() else None}
 
 
 class PushSubscriptionKeys(BaseModel):

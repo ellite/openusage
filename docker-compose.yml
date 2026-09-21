@@ -11,7 +11,9 @@ services:
       - TZ=UTC
       - ENABLE_ACCOUNT_CREATION=true  # set to false once you've created the accounts you need
       - SECRET_KEY=change-me-generate-a-random-string  # REQUIRED: replace with `openssl rand -hex 32`
-
+      - VAPID_PRIVATE_KEY=e_eWJijmuviXlwAIIWjYzhl8GecRzTcvk_DHLyS3wWk
+      - VAPID_PUBLIC_KEY=BDKtIjRt8yctjxc8k8eeGdaGo1Zt6krD6OxfejKuQUHIDCt93hNFsl5N9mzpmqx6-NHj1XqGUOMLm9TDupmFEJ0
+      - VAPID_SUBJECT=mailto:bellamyhomelab@gmail.com
       # SMTP (optional) - powers "Forgot password?" on the login page.
       # - SERVER_URL=http://your-server:4188  # used to build the reset-password link
       # - SMTP_ADDRESS=

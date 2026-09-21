@@ -84,7 +84,7 @@ import Layout from '../layouts/Layout.astro';
 
   <div id="push-status" class="auth-success" style="display: none;"></div>
   <div class="twofactor-actions">
-    <button type="button" id="push-toggle-btn" class="btn btn-sm">Enable on this device</button>
+    <button type="button" id="push-toggle-btn" class="btn btn-sm" hidden>Enable on this device</button>
     <button type="button" id="push-test-btn" class="btn btn-sm" hidden>Send test notification</button>
   </div>
 
@@ -595,6 +595,9 @@ import Layout from '../layouts/Layout.astro';
     :global(.svc-actions) {
       display: flex;
       gap: 8px;
+    }
+    .btn[hidden] {
+      display: none;
     }
     .btn-sm {
       padding: 6px 12px;
@@ -2249,14 +2252,17 @@ import Layout from '../layouts/Layout.astro';
       if (!pushToggleBtn) return;
       if (!vapidPublicKey) {
         if (pushDescription) pushDescription.textContent = 'Push notifications are not configured on this server (missing VAPID keys).';
-        pushToggleBtn.disabled = true;
+        pushToggleBtn.hidden = true;
+        if (pushTestBtn) pushTestBtn.hidden = true;
         return;
       }
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         if (pushDescription) pushDescription.textContent = "This browser doesn't support push notifications.";
-        pushToggleBtn.disabled = true;
+        pushToggleBtn.hidden = true;
+        if (pushTestBtn) pushTestBtn.hidden = true;
         return;
       }
+      pushToggleBtn.hidden = false;
       const sub = await getExistingPushSubscription();
       pushToggleBtn.textContent = sub ? 'Disable on this device' : 'Enable on this device';
       if (pushTestBtn) pushTestBtn.hidden = !sub;
