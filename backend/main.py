@@ -62,10 +62,16 @@ from db import (
     create_password_reset_token,
     get_password_reset_token,
     delete_password_reset_token,
+    get_service_notify_armed,
+    set_service_notify_armed,
+    add_push_subscription,
+    delete_push_subscription,
 )
 import email_notifier
 import oidc
 import two_factor as mfa
+import push_notifier
+from thresholds import APPLICABLE_THRESHOLDS, extract_usage_percentages
 from curl_parse import parse_curl, parse_gemini_curl, parse_openai_session_curl, parse_chatgpt_curl, parse_ollama_curl
 from fetchers.claude import fetch_claude
 from fetchers.gemini import fetch_gemini
@@ -132,6 +138,48 @@ def _get_or_start_live_fetch(user_service: dict) -> asyncio.Task:
     return task
 
 
+async def _check_thresholds_and_notify(user_service: dict, data: dict):
+    """Fires a push notification the moment usage crosses a configured
+    threshold, once per crossing -- see service_notify_state's "armed" flag
+    in db.py for how the moment usage drops back below it re-arms the check.
+    """
+    svc_id = user_service["id"]
+    svc_type = user_service["service_type"]
+    thresholds_cfg = user_service.get("notify_thresholds") or {}
+    if not thresholds_cfg:
+        return
+
+    percentages = extract_usage_percentages(svc_type, data)
+    if not percentages:
+        return
+
+    for threshold_type in APPLICABLE_THRESHOLDS.get(svc_type, ()):
+        threshold = thresholds_cfg.get(f"{threshold_type}_threshold")
+        pct = percentages.get(threshold_type)
+        if threshold is None or pct is None:
+            continue
+
+        armed = await get_service_notify_armed(svc_id, threshold_type)
+        if pct >= threshold:
+            if armed:
+                try:
+                    await push_notifier.send_push(
+                        user_service["user_id"],
+                        f"{user_service['name']}: {threshold_type} usage at {pct:.0f}%",
+                        f"{threshold_type.capitalize()} usage has crossed your {threshold:.0f}% threshold.",
+                        url="/",
+                    )
+                except push_notifier.PushNotifierError as e:
+                    logger.info("Skipped threshold push for service id=%s: %s", svc_id, e)
+                else:
+                    # Only a successful delivery consumes this crossing. If
+                    # every device failed (or none are subscribed), leave it
+                    # armed so a later refresh can retry.
+                    await set_service_notify_armed(svc_id, threshold_type, False)
+        elif not armed:
+            await set_service_notify_armed(svc_id, threshold_type, True)
+
+
 async def _live_fetch_and_save(user_service: dict) -> dict:
     svc_id = user_service["id"]
     svc_type = user_service["service_type"]
@@ -163,8 +211,13 @@ async def _live_fetch_and_save(user_service: dict) -> dict:
             result = await fetcher(config)
 
         if result.get("status") == "ok":
-            await save_service_usage(svc_id, result.get("data", {}))
+            data = result.get("data", {})
+            await save_service_usage(svc_id, data)
             _last_fetch_error.pop(svc_id, None)
+            try:
+                await _check_thresholds_and_notify(user_service, data)
+            except Exception:
+                logger.exception("Threshold notify check failed for %s (id=%s)", svc_name, svc_id)
             logger.info("Live fetch succeeded for %s (id=%s)", svc_name, svc_id)
             return {"id": svc_id, "service_type": svc_type, "name": svc_name, "result": result}
 
@@ -700,6 +753,7 @@ class UserServiceCreate(BaseModel):
     name: str
     config: dict
     category_id: Optional[int] = None
+    notify_thresholds: Optional[dict] = None
 
 
 @app.post("/api/user-services")
@@ -707,7 +761,9 @@ async def create_user_service(req: UserServiceCreate, user: dict = Depends(get_c
     if req.service_type not in SERVICE_FETCHERS:
         raise HTTPException(status_code=400, detail=f"Invalid service_type: {req.service_type}")
     svc_name = req.name.strip() or req.service_type.capitalize()
-    svc_id = await add_user_service(user["id"], req.service_type, svc_name, req.config, req.category_id)
+    svc_id = await add_user_service(
+        user["id"], req.service_type, svc_name, req.config, req.category_id, req.notify_thresholds
+    )
     return {"status": "ok", "id": svc_id}
 
 
@@ -715,6 +771,9 @@ class UserServiceUpdate(BaseModel):
     name: str
     config: dict
     category_id: Optional[int] = None
+    # None means "not part of this update" so category moves, cURL refreshes,
+    # and provider credential rotation preserve the existing thresholds.
+    notify_thresholds: Optional[dict] = None
 
 
 @app.put("/api/user-services/{service_id}")
@@ -725,9 +784,22 @@ async def update_service(
     if not existing:
         raise HTTPException(status_code=404, detail="Service not found")
     svc_name = req.name.strip() or existing["service_type"].capitalize()
-    await update_user_service(service_id, user["id"], svc_name, req.config, req.category_id)
+    effective_thresholds = (
+        existing.get("notify_thresholds", {})
+        if req.notify_thresholds is None
+        else req.notify_thresholds
+    )
+    await update_user_service(
+        service_id, user["id"], svc_name, req.config, req.category_id, req.notify_thresholds
+    )
     _last_fetch_error.pop(service_id, None)
-    updated_svc = {**existing, "name": svc_name, "config": req.config, "category_id": req.category_id}
+    updated_svc = {
+        **existing,
+        "name": svc_name,
+        "config": req.config,
+        "category_id": req.category_id,
+        "notify_thresholds": effective_thresholds,
+    }
     _trigger_background_live_fetch(updated_svc)
     return {"status": "ok"}
 
@@ -900,6 +972,53 @@ class CopilotPollItem(BaseModel):
 async def copilot_device_poll(item: Optional[CopilotPollItem] = None):
     dev_code = item.device_code if item else None
     return await poll_device_flow(dev_code)
+
+
+# Push notification endpoints. There's no separate "enabled" flag on the
+# user -- subscribing a device on the Settings page is what turns push
+# notifications on for that user; unsubscribing every device turns it off.
+@app.get("/api/push/public-key")
+async def push_public_key():
+    return {"public_key": push_notifier.VAPID_PUBLIC_KEY}
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+
+
+class PushSubscriptionDelete(BaseModel):
+    endpoint: str
+
+
+@app.post("/api/push/subscribe")
+async def push_subscribe(req: PushSubscriptionCreate, user: dict = Depends(get_current_user)):
+    if not push_notifier.is_configured():
+        raise HTTPException(status_code=400, detail="Push notifications are not configured on this instance")
+    await add_push_subscription(user["id"], req.endpoint, req.keys.p256dh, req.keys.auth)
+    return {"status": "ok"}
+
+
+@app.post("/api/push/unsubscribe")
+async def push_unsubscribe(req: PushSubscriptionDelete, user: dict = Depends(get_current_user)):
+    await delete_push_subscription(user["id"], req.endpoint)
+    return {"status": "ok"}
+
+
+@app.post("/api/push/test")
+async def push_test(user: dict = Depends(get_current_user)):
+    try:
+        await push_notifier.send_push(
+            user["id"], "OpenUsage test notification", "If you can see this, push notifications are working."
+        )
+    except push_notifier.PushNotifierError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "ok"}
 
 
 # Serve the built frontend. Mounted last so it never shadows the /api/ routes

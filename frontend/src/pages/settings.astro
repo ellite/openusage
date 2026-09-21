@@ -75,6 +75,21 @@ import Layout from '../layouts/Layout.astro';
 
   <hr class="section-divider" />
 
+  <div class="settings-header">
+    <div>
+      <h1>Push Notifications</h1>
+      <p class="subtitle" id="push-description">Get notified on this device when a service crosses a usage threshold you set below</p>
+    </div>
+  </div>
+
+  <div id="push-status" class="auth-success" style="display: none;"></div>
+  <div class="twofactor-actions">
+    <button type="button" id="push-toggle-btn" class="btn btn-sm">Enable on this device</button>
+    <button type="button" id="push-test-btn" class="btn btn-sm" hidden>Send test notification</button>
+  </div>
+
+  <hr class="section-divider" />
+
   <div class="settings-header" id="settings-header">
     <div>
       <h1>Configured Services</h1>
@@ -291,6 +306,29 @@ import Layout from '../layouts/Layout.astro';
             <div class="curl-box">
               <button type="button" id="custom-test-btn" class="btn btn-sm">Test Connection</button>
               <div id="custom-test-result"></div>
+            </div>
+          </div>
+
+          <!-- Push notification thresholds -->
+          <div id="notify-thresholds-section" style="display: none;">
+            <hr class="modal-divider" />
+            <div class="form-group">
+              <label>Push notification thresholds</label>
+              <p class="msg-hint">Notify this device when usage crosses these percentages. Leave a field blank to skip that one.</p>
+            </div>
+            <div class="form-row">
+              <div class="form-group" id="notify-session-group" style="display: none;">
+                <label for="notify-session-threshold">Session %</label>
+                <input type="number" id="notify-session-threshold" min="1" max="100" placeholder="e.g. 80" />
+              </div>
+              <div class="form-group" id="notify-weekly-group" style="display: none;">
+                <label for="notify-weekly-threshold">Weekly %</label>
+                <input type="number" id="notify-weekly-threshold" min="1" max="100" placeholder="e.g. 90" />
+              </div>
+              <div class="form-group" id="notify-monthly-group" style="display: none;">
+                <label for="notify-monthly-threshold">Monthly %</label>
+                <input type="number" id="notify-monthly-threshold" min="1" max="100" placeholder="e.g. 90" />
+              </div>
             </div>
           </div>
 
@@ -1477,11 +1515,36 @@ import Layout from '../layouts/Layout.astro';
     const modal = document.getElementById('service-modal');
     const serviceTypeSelect = document.getElementById('service-type') as HTMLSelectElement;
 
+    // Which of session/weekly/monthly thresholds apply to each service type.
+    // Must be kept in sync with backend/thresholds.py's APPLICABLE_THRESHOLDS.
+    const APPLICABLE_THRESHOLDS: Record<string, string[]> = {
+      claude: ['session', 'weekly'],
+      gemini: ['session', 'weekly'],
+      chatgpt: ['session', 'weekly'],
+      copilot: ['monthly'],
+      ollama_cloud: ['session'],
+      deepseek: [],
+      openai: [],
+      custom: [],
+    };
+
+    function updateNotifyThresholdsSection() {
+      const type = serviceTypeSelect.value;
+      const applicable = APPLICABLE_THRESHOLDS[type] || [];
+      const section = document.getElementById('notify-thresholds-section');
+      if (section) section.style.display = applicable.length ? 'block' : 'none';
+      (['session', 'weekly', 'monthly'] as const).forEach((kind) => {
+        const group = document.getElementById(`notify-${kind}-group`);
+        if (group) group.style.display = applicable.includes(kind) ? 'block' : 'none';
+      });
+    }
+
     function updateConfigSection() {
       const type = serviceTypeSelect.value;
       document.querySelectorAll('.config-section').forEach((el: any) => el.style.display = 'none');
       const target = document.getElementById(`config-${type}`);
       if (target) target.style.display = 'block';
+      updateNotifyThresholdsSection();
 
       const nameInput = document.getElementById('service-name') as HTMLInputElement;
       const editId = (document.getElementById('edit-service-id') as HTMLInputElement).value;
@@ -1557,6 +1620,11 @@ import Layout from '../layouts/Layout.astro';
         } else {
           addCustomFieldRow();
         }
+
+        const notify = svc.notify_thresholds || {};
+        (document.getElementById('notify-session-threshold') as HTMLInputElement).value = notify.session_threshold ?? '';
+        (document.getElementById('notify-weekly-threshold') as HTMLInputElement).value = notify.weekly_threshold ?? '';
+        (document.getElementById('notify-monthly-threshold') as HTMLInputElement).value = notify.monthly_threshold ?? '';
       } else {
         if (modalTitle) modalTitle.textContent = 'Add Service';
         if (editIdInput) editIdInput.value = '';
@@ -1571,6 +1639,10 @@ import Layout from '../layouts/Layout.astro';
         const fieldsList = document.getElementById('custom-fields-list');
         if (fieldsList) fieldsList.innerHTML = '';
         addCustomFieldRow();
+
+        (document.getElementById('notify-session-threshold') as HTMLInputElement).value = '';
+        (document.getElementById('notify-weekly-threshold') as HTMLInputElement).value = '';
+        (document.getElementById('notify-monthly-threshold') as HTMLInputElement).value = '';
       }
 
       const testResultEl = document.getElementById('custom-test-result');
@@ -2098,9 +2170,23 @@ import Layout from '../layouts/Layout.astro';
       const categoryRaw = (document.getElementById('service-category') as HTMLSelectElement).value;
       const category_id = categoryRaw ? parseInt(categoryRaw) : null;
 
+      const applicableThresholds = APPLICABLE_THRESHOLDS[type] || [];
+      const readThreshold = (kind: string): number | null => {
+        if (!applicableThresholds.includes(kind)) return null;
+        const raw = (document.getElementById(`notify-${kind}-threshold`) as HTMLInputElement).value.trim();
+        return raw ? Number(raw) : null;
+      };
+      const notify_thresholds = {
+        session_threshold: readThreshold('session'),
+        weekly_threshold: readThreshold('weekly'),
+        monthly_threshold: readThreshold('monthly'),
+      };
+
       const url = editId ? `/api/user-services/${editId}` : '/api/user-services';
       const method = editId ? 'PUT' : 'POST';
-      const body = editId ? { name, config, category_id } : { service_type: type, name, config, category_id };
+      const body = editId
+        ? { name, config, category_id, notify_thresholds }
+        : { service_type: type, name, config, category_id, notify_thresholds };
 
       try {
         const res = await fetch(url, {
@@ -2127,8 +2213,128 @@ import Layout from '../layouts/Layout.astro';
       }
     });
 
+    // ── Push notifications ──
+    function urlBase64ToUint8Array(base64String: string): Uint8Array {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    let vapidPublicKey: string | null = null;
+    const pushToggleBtn = document.getElementById('push-toggle-btn') as HTMLButtonElement | null;
+    const pushTestBtn = document.getElementById('push-test-btn') as HTMLButtonElement | null;
+    const pushDescription = document.getElementById('push-description');
+
+    function showPushStatus(message: string, isError: boolean) {
+      const el = document.getElementById('push-status');
+      if (!el) return;
+      el.textContent = message;
+      el.style.display = 'block';
+      el.className = isError ? 'auth-error' : 'auth-success';
+    }
+
+    async function getExistingPushSubscription(): Promise<PushSubscription | null> {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+      const reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+      if (!reg) return null;
+      return reg.pushManager.getSubscription();
+    }
+
+    async function refreshPushUI() {
+      if (!pushToggleBtn) return;
+      if (!vapidPublicKey) {
+        if (pushDescription) pushDescription.textContent = 'Push notifications are not configured on this server (missing VAPID keys).';
+        pushToggleBtn.disabled = true;
+        return;
+      }
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        if (pushDescription) pushDescription.textContent = "This browser doesn't support push notifications.";
+        pushToggleBtn.disabled = true;
+        return;
+      }
+      const sub = await getExistingPushSubscription();
+      pushToggleBtn.textContent = sub ? 'Disable on this device' : 'Enable on this device';
+      if (pushTestBtn) pushTestBtn.hidden = !sub;
+    }
+
+    pushToggleBtn?.addEventListener('click', async () => {
+      pushToggleBtn.disabled = true;
+      const token = getAuthToken();
+      try {
+        const existing = await getExistingPushSubscription();
+        if (existing) {
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ endpoint: existing.endpoint }),
+          });
+          await existing.unsubscribe();
+          showPushStatus('Disabled on this device.', false);
+        } else {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            throw new Error('Notification permission was not granted');
+          }
+          const reg = await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          });
+          const subJson: any = sub.toJSON();
+          const res = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(d.detail || 'Could not save subscription');
+          }
+          showPushStatus('Enabled on this device.', false);
+        }
+      } catch (e: any) {
+        showPushStatus(e.message, true);
+      } finally {
+        pushToggleBtn.disabled = false;
+        refreshPushUI();
+      }
+    });
+
+    pushTestBtn?.addEventListener('click', async () => {
+      const token = getAuthToken();
+      try {
+        const res = await fetch('/api/push/test', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.detail || 'Test failed');
+        }
+        showPushStatus('Test sent — check this device.', false);
+      } catch (e: any) {
+        showPushStatus(e.message, true);
+      }
+    });
+
+    async function loadPushConfig() {
+      try {
+        const res = await fetch('/api/push/public-key');
+        const d = await res.json();
+        vapidPublicKey = d.public_key;
+      } catch {}
+      await refreshPushUI();
+    }
+
     loadCategories().then(() => loadUserServices());
     loadAccount();
     loadTwoFactorStatus();
+    loadPushConfig();
   </script>
 </Layout>

@@ -24,6 +24,7 @@
 - [Supported Providers](#supported-providers)
 - [Getting Started](#getting-started)
 - [Configuration](#configuration)
+- [Push Notifications](#push-notifications)
 - [Adding a Provider](#adding-a-provider)
 - [Data and Security](#data-and-security)
 - [Architecture](#architecture)
@@ -36,6 +37,7 @@
 - Refresh usage on demand, with cached results retained when a provider is temporarily unavailable.
 - Refresh connected providers in the background every five minutes.
 - Create and manage local user accounts, with optional OIDC/SSO sign-in, email-based password reset, and TOTP two-factor authentication.
+- Receive optional browser push notifications when a configured service crosses a usage threshold.
 - Install the frontend as a progressive web app (PWA).
 
 ## Screenshots
@@ -182,12 +184,72 @@ The application reads the following environment variables:
 | `OIDC_SCOPES` | `openid email profile` | OAuth2 scopes requested. |
 | `OIDC_AUTO_CREATE_USERS` | `true` | Creates a local account on first SSO login if none matches. |
 | `OIDC_DISABLE_PASSWORD_LOGIN` | `false` | Hides the username/password form, making SSO the only way in. |
+| `VAPID_PUBLIC_KEY` | - | Public VAPID key used when browsers subscribe to push notifications. |
+| `VAPID_PRIVATE_KEY` | - | Private VAPID key used to sign push notifications. Keep this secret. |
+| `VAPID_SUBJECT` | `mailto:admin@example.com` | Contact URI sent to push services. Use a valid `mailto:` or HTTPS URI. |
 
 Add any of these to the `environment:` block in `docker-compose.yml`, then apply changes with:
 
 ```bash
 docker compose up -d
 ```
+
+## Push Notifications
+
+OpenUsage can send browser push notifications when a service crosses one of its configured usage thresholds. Push notifications remain disabled until the server has a VAPID key pair and a user enables them on a device.
+
+Web Push requires a secure context. Serve OpenUsage over HTTPS in production; browsers generally make an exception only for `localhost` during local development.
+
+### Generate VAPID keys
+
+If OpenUsage is already running with Docker Compose, generate a key pair inside the container:
+
+```bash
+docker exec openusage python /app/scripts/generate_vapid_keys.py
+```
+
+For a native development installation, run the script with the backend virtual environment instead:
+
+```bash
+cd backend
+.venv/bin/python scripts/generate_vapid_keys.py
+```
+
+The script prints a private and public key. Save them in the repository-root `.env` file, along with a contact address for your server:
+
+```env
+VAPID_PRIVATE_KEY=generated-private-key
+VAPID_PUBLIC_KEY=generated-public-key
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+For Docker Compose, pass those values through the `environment` section of the `openusage` service:
+
+```yaml
+environment:
+  - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+  - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+  - VAPID_SUBJECT=${VAPID_SUBJECT}
+```
+
+Then recreate the application container:
+
+```bash
+docker compose up -d openusage
+```
+
+If you use `docker run`, pass the same variables with `--env-file .env` or individual `-e` options. For a native installation, restart the backend after updating `.env`.
+
+Keep the private key secret and preserve the same key pair across upgrades and container recreations. Replacing it invalidates existing browser subscriptions, so every device would need to enable notifications again.
+
+### Enable a device and configure alerts
+
+1. Open **Settings → Push Notifications**.
+2. Select **Enable on this device** and allow notifications when the browser asks.
+3. Use **Send test notification** to verify delivery.
+4. Add or edit a service and set the notification thresholds you want for that provider.
+
+Each browser or device must be enabled separately. A notification is sent once when usage crosses a threshold; it is automatically armed again after usage drops below that threshold following a reset.
 
 ## Adding a Provider
 

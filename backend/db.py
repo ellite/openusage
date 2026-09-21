@@ -133,6 +133,44 @@ async def init_db():
             )
         """)
 
+        # notify_thresholds holds this service's push-notification config
+        # (e.g. {"session_threshold": 80, "weekly_threshold": null,
+        # "monthly_threshold": null}) -- which keys are meaningful depends on
+        # the service_type (see backend/thresholds.py's APPLICABLE_THRESHOLDS).
+        if "notify_thresholds" not in cols:
+            await db.execute("ALTER TABLE user_services ADD COLUMN notify_thresholds TEXT NOT NULL DEFAULT '{}'")
+
+        # One row per browser/device a user has enabled push notifications on.
+        # There's no separate "push enabled" flag on the user -- having at
+        # least one subscription here is what "enabled" means.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                endpoint TEXT UNIQUE NOT NULL,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Tracks whether a given service/threshold-type pairing is still
+        # "armed" to fire a push notification. Sending sets armed=0 so the
+        # background refresh loop (every 5 minutes) doesn't re-notify on
+        # every poll while usage stays above the threshold; dropping back
+        # below it (a new session, week, or billing month) sets it back to 1.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS service_notify_state (
+                user_service_id INTEGER NOT NULL,
+                threshold_type TEXT NOT NULL,
+                armed INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (user_service_id, threshold_type),
+                FOREIGN KEY (user_service_id) REFERENCES user_services(id) ON DELETE CASCADE
+            )
+        """)
+
         await db.commit()
 
 
@@ -252,6 +290,13 @@ async def delete_all_sessions_for_user(user_id: int):
         await db.commit()
 
 
+def _load_service_row(row) -> dict:
+    item = dict(row)
+    item["config"] = json.loads(item["config"]) if item["config"] else {}
+    item["notify_thresholds"] = json.loads(item["notify_thresholds"]) if item["notify_thresholds"] else {}
+    return item
+
+
 async def get_user_services(user_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -259,12 +304,7 @@ async def get_user_services(user_id: int):
             "SELECT * FROM user_services WHERE user_id = ? ORDER BY id ASC", (user_id,)
         ) as cursor:
             rows = await cursor.fetchall()
-            services = []
-            for r in rows:
-                item = dict(r)
-                item["config"] = json.loads(item["config"]) if item["config"] else {}
-                services.append(item)
-            return services
+            return [_load_service_row(r) for r in rows]
 
 
 async def get_all_user_services():
@@ -272,12 +312,7 @@ async def get_all_user_services():
         db.row_factory = aiosqlite.Row
         async with db.execute("SELECT * FROM user_services ORDER BY id ASC") as cursor:
             rows = await cursor.fetchall()
-            services = []
-            for r in rows:
-                item = dict(r)
-                item["config"] = json.loads(item["config"]) if item["config"] else {}
-                services.append(item)
-            return services
+            return [_load_service_row(r) for r in rows]
 
 
 async def get_user_service(service_id: int, user_id: int):
@@ -287,42 +322,84 @@ async def get_user_service(service_id: int, user_id: int):
             "SELECT * FROM user_services WHERE id = ? AND user_id = ?", (service_id, user_id)
         ) as cursor:
             row = await cursor.fetchone()
-            if not row:
-                return None
-            item = dict(row)
-            item["config"] = json.loads(item["config"]) if item["config"] else {}
-            return item
+            return _load_service_row(row) if row else None
 
 
 async def add_user_service(
-    user_id: int, service_type: str, name: str, config: dict, category_id: int | None = None
+    user_id: int,
+    service_type: str,
+    name: str,
+    config: dict,
+    category_id: int | None = None,
+    notify_thresholds: dict | None = None,
 ):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """
-            INSERT INTO user_services (user_id, service_type, name, config, category_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO user_services (user_id, service_type, name, config, category_id, notify_thresholds, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, service_type, name, json.dumps(config), category_id, now, now),
+            (user_id, service_type, name, json.dumps(config), category_id, json.dumps(notify_thresholds or {}), now, now),
         )
         await db.commit()
         return cursor.lastrowid
 
 
 async def update_user_service(
-    service_id: int, user_id: int, name: str, config: dict, category_id: int | None = None
+    service_id: int,
+    user_id: int,
+    name: str,
+    config: dict,
+    category_id: int | None = None,
+    notify_thresholds: dict | None = None,
 ):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            UPDATE user_services
-            SET name = ?, config = ?, category_id = ?, updated_at = ?
-            WHERE id = ? AND user_id = ?
-            """,
-            (name, json.dumps(config), category_id, now, service_id, user_id),
-        )
+        if notify_thresholds is None:
+            # Internal credential rotation and older PUT callers update only
+            # fetcher config. Omitting thresholds must preserve both their
+            # values and the once-per-crossing armed state.
+            await db.execute(
+                """
+                UPDATE user_services
+                SET name = ?, config = ?, category_id = ?, updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (name, json.dumps(config), category_id, now, service_id, user_id),
+            )
+        else:
+            normalized_thresholds = notify_thresholds or {}
+            async with db.execute(
+                "SELECT notify_thresholds FROM user_services WHERE id = ? AND user_id = ?",
+                (service_id, user_id),
+            ) as cursor:
+                row = await cursor.fetchone()
+            existing_thresholds = json.loads(row[0]) if row and row[0] else {}
+
+            await db.execute(
+                """
+                UPDATE user_services
+                SET name = ?, config = ?, category_id = ?, notify_thresholds = ?, updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (
+                    name,
+                    json.dumps(config),
+                    category_id,
+                    json.dumps(normalized_thresholds),
+                    now,
+                    service_id,
+                    user_id,
+                ),
+            )
+            if existing_thresholds != normalized_thresholds:
+                # A genuinely changed threshold should be free to fire under
+                # the new configuration, even if the old one already fired.
+                await db.execute(
+                    "DELETE FROM service_notify_state WHERE user_service_id = ?",
+                    (service_id,),
+                )
         await db.commit()
 
 
@@ -332,7 +409,71 @@ async def delete_user_service(service_id: int, user_id: int):
             "DELETE FROM user_services WHERE id = ? AND user_id = ?", (service_id, user_id)
         )
         await db.execute("DELETE FROM service_usage_history WHERE user_service_id = ?", (service_id,))
+        await db.execute("DELETE FROM service_notify_state WHERE user_service_id = ?", (service_id,))
         await db.commit()
+
+
+async def get_service_notify_armed(user_service_id: int, threshold_type: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT armed FROM service_notify_state WHERE user_service_id = ? AND threshold_type = ?",
+            (user_service_id, threshold_type),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return True if row is None else bool(row[0])
+
+
+async def set_service_notify_armed(user_service_id: int, threshold_type: str, armed: bool):
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO service_notify_state (user_service_id, threshold_type, armed, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_service_id, threshold_type)
+            DO UPDATE SET armed = excluded.armed, updated_at = excluded.updated_at
+            """,
+            (user_service_id, threshold_type, int(armed), now),
+        )
+        await db.commit()
+
+
+async def add_push_subscription(user_id: int, endpoint: str, p256dh: str, auth: str):
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth
+            """,
+            (user_id, endpoint, p256dh, auth, now),
+        )
+        await db.commit()
+
+
+async def delete_push_subscription(user_id: int, endpoint: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?", (user_id, endpoint)
+        )
+        await db.commit()
+
+
+async def delete_push_subscription_by_endpoint(endpoint: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+        await db.commit()
+
+
+async def get_push_subscriptions(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM push_subscriptions WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
 
 async def save_service_usage(user_service_id: int, data: dict):

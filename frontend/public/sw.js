@@ -77,3 +77,45 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'OpenUsage', body: '' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    if (event.data) data.body = event.data.text();
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'OpenUsage', {
+      body: data.body || '',
+      data: { url: data.url || '/' },
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  let target = new URL('/', self.location.origin);
+  try {
+    const requested = new URL(event.notification.data?.url || '/', self.location.origin);
+    if (requested.origin === self.location.origin) target = requested;
+  } catch {
+    // Old notifications and malformed destinations fall back to the dashboard.
+  }
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clients) {
+      if (new URL(client.url).origin !== self.location.origin) continue;
+      try {
+        const navigated = await client.navigate(target.href);
+        if (navigated) return await navigated.focus();
+      } catch {
+        // A closing window should not prevent opening the requested card.
+      }
+    }
+    return self.clients.openWindow(target.href);
+  })());
+});

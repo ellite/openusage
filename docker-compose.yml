@@ -34,5 +34,11 @@ services:
       # - OIDC_SCOPES=openid email profile
       # - OIDC_AUTO_CREATE_USERS=true
       # - OIDC_DISABLE_PASSWORD_LOGIN=false
+
+      # Push notifications (optional) - per-service usage-threshold alerts.
+      # Generate a key pair with `python scripts/generate_vapid_keys.py`.
+      # - VAPID_PUBLIC_KEY=
+      # - VAPID_PRIVATE_KEY=
+      # - VAPID_SUBJECT=mailto:you@example.com
     volumes:
       - ./data:/app/data
