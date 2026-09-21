@@ -818,9 +818,14 @@ import Layout from '../layouts/Layout.astro';
       flex: 1 0 100%;
       width: 100%;
     }
-    :global(.custom-field-row .btn-danger) {
+    :global(.custom-field-row .btn-danger),
+    :global(.custom-field-row .cf-move) {
       flex-shrink: 0;
       padding: 8px 10px;
+    }
+    :global(.custom-field-row .cf-move:disabled) {
+      opacity: 0.35;
+      cursor: default;
     }
     :global(#custom-test-result) {
       margin-top: 10px;
@@ -1758,6 +1763,8 @@ import Layout from '../layouts/Layout.astro';
           <option value="progress">Progress (X/Y)</option>
         </select>
         <input type="text" class="cf-symbol" placeholder="$" style="display:none;" />
+        <button type="button" class="btn btn-sm cf-move cf-up" title="Move up" aria-label="Move field up">↑</button>
+        <button type="button" class="btn btn-sm cf-move cf-down" title="Move down" aria-label="Move field down">↓</button>
         <button type="button" class="btn btn-sm btn-danger cf-remove">✕</button>
         <select class="cf-total-path form-select" aria-label="Total field" style="display:none;"></select>
       `;
@@ -1784,12 +1791,32 @@ import Layout from '../layouts/Layout.astro';
       updateTypeInputs();
       typeSelect.addEventListener('change', updateTypeInputs);
       pathInput.addEventListener('input', updateCustomFieldSuggestionButtons);
+      row.querySelector('.cf-up')?.addEventListener('click', () => {
+        const prev = row.previousElementSibling;
+        if (prev) list.insertBefore(row, prev);
+        updateMoveButtons();
+      });
+      row.querySelector('.cf-down')?.addEventListener('click', () => {
+        const next = row.nextElementSibling;
+        if (next) list.insertBefore(next, row);
+        updateMoveButtons();
+      });
       row.querySelector('.cf-remove')?.addEventListener('click', () => {
         row.remove();
+        updateMoveButtons();
         updateCustomFieldSuggestionButtons();
       });
       list.appendChild(row);
+      updateMoveButtons();
       updateCustomFieldSuggestionButtons();
+    }
+
+    function updateMoveButtons() {
+      const rows = Array.from(document.querySelectorAll('#custom-fields-list .custom-field-row'));
+      rows.forEach((row: any, i: number) => {
+        row.querySelector('.cf-up').disabled = i === 0;
+        row.querySelector('.cf-down').disabled = i === rows.length - 1;
+      });
     }
 
     document.getElementById('custom-add-field-btn')?.addEventListener('click', () => addCustomFieldRow());
