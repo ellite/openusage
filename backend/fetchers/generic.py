@@ -138,12 +138,17 @@ def _extract_fields(payload, fields: list) -> list:
         path = (f.get("path") or "").strip()
         if not label or not path:
             continue
-        result.append({
+        field_type = f.get("type") or "text"
+        extracted = {
             "label": label,
-            "type": f.get("type") or "text",
+            "type": field_type,
             "symbol": f.get("symbol") or "",
             "value": _resolve_path(payload, path),
-        })
+        }
+        if field_type == "progress":
+            total_path = (f.get("total_path") or "").strip()
+            extracted["total"] = _resolve_path(payload, total_path) if total_path else None
+        result.append(extracted)
     return result
 
 

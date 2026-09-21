@@ -600,6 +600,17 @@ import Layout from '../layouts/Layout.astro';
     } as Record<string, string>)[c]);
   }
 
+  function normalizeProgressLabel(label: string): string {
+    const trimmed = label.trim();
+    const period = '(?:hour|day|week|month|year|hourly|daily|weekly|monthly|yearly)';
+    const prefix = '(?:(?:this|current|last)\\s+)?';
+    if (new RegExp(`^${prefix}${period}(?:'s)?\\s+usage$`, 'i').test(trimmed)
+      || new RegExp(`^usage\\s+${prefix}${period}$`, 'i').test(trimmed)) {
+      return 'Usage';
+    }
+    return label;
+  }
+
   const SEVERITY_TO_BAR_CLASS: Record<string, string> = {
     ok: 'bar-low',
     warn: 'bar-mid',
@@ -693,11 +704,18 @@ import Layout from '../layouts/Layout.astro';
       </div>`;
   }
 
-  function heroBlock(label: string, block: any, idleText: string | null = null, windowMs: number | null = null, extra: string = '') {
+  function heroBlock(
+    label: string,
+    block: any,
+    idleText: string | null = null,
+    windowMs: number | null = null,
+    extra: string = '',
+    useFullCountdown = false
+  ) {
     if (!block || typeof block.utilization !== 'number') return '';
     const usedPct = Math.round(block.utilization);
     const leftPct = 100 - usedPct;
-    const countdown = fmtCountdown(block.resets_at);
+    const countdown = useFullCountdown ? fmtCountdownFull(block.resets_at) : fmtCountdown(block.resets_at);
     return `
       <div class="hero">
         ${ring(leftPct, usedPct, block.resets_at, windowMs)}
@@ -1135,16 +1153,51 @@ import Layout from '../layouts/Layout.astro';
     } else if (type === 'custom') {
       const fields = Array.isArray(d.fields) ? d.fields : [];
       const severities: any[] = [];
+      const resetField = fields.find((f: any) =>
+        f.type === 'reset_date' && parseFlexibleDate(f.value)
+      );
+      const resetDate = resetField ? parseFlexibleDate(resetField.value) : null;
+      const resetsAt = resetDate ? resetDate.toISOString() : null;
+      const hasRenderableProgress = fields.some((f: any) =>
+        f.type === 'progress'
+        && f.value !== null
+        && f.total !== null
+        && Number.isFinite(Number(f.value))
+        && Number.isFinite(Number(f.total))
+        && Number(f.total) > 0
+      );
       let html = '';
       if (!fields.length) {
         html += '<p class="notice">No fields matched — check the field paths in Settings.</p>';
       } else {
         fields.forEach((f: any, idx: number) => {
           const ftype = f.type || 'text';
-          const label = escapeHtml(f.label);
+          const label = escapeHtml(ftype === 'progress' ? normalizeProgressLabel(f.label || '') : f.label);
           const bigCls = idx === 0 ? 'big' : '';
 
-          if (ftype === 'percentage') {
+          if (ftype === 'progress') {
+            const used = Number(f.value);
+            const total = Number(f.total);
+            if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
+              const usedPct = Math.max(0, Math.min(100, (used / total) * 100));
+              const formatValue = (value: number) => Number.isInteger(value)
+                ? value.toLocaleString()
+                : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+              const usageDetail = `${formatValue(used)} of ${formatValue(total)} used`;
+              severities.push(getUsageSeverity(usedPct, resetsAt, null));
+              html += heroBlock(
+                label,
+                { utilization: usedPct, resets_at: resetsAt },
+                resetsAt ? null : usageDetail,
+                null,
+                resetsAt ? usageDetail : '',
+                true
+              );
+            } else {
+              html += row(label, '—', bigCls);
+            }
+
+          } else if (ftype === 'percentage') {
             const pct = Math.max(0, Math.min(100, Number(f.value) || 0));
             severities.push(getUsageSeverity(pct, null, null));
             html += listRow(label, pct, null, '', null);
@@ -1153,6 +1206,18 @@ import Layout from '../layouts/Layout.astro';
             const num = Number(f.value);
             const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
             html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), bigCls);
+
+          } else if (ftype === 'reset_date') {
+            if (f === resetField && hasRenderableProgress) return;
+            const d2 = parseFlexibleDate(f.value);
+            if (!d2) {
+              html += row(label, '—');
+            } else {
+              const iso = d2.toISOString();
+              const countdown = fmtCountdownFull(iso);
+              const resetText = d2.getTime() > Date.now() ? `Resets in ${countdown}` : countdown;
+              html += rowTwoLine(resetText, fmtDate(iso));
+            }
 
           } else if (ftype === 'date') {
             const d2 = parseFlexibleDate(f.value);
