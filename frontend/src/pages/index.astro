@@ -1403,7 +1403,7 @@ import ServiceManager from '../components/ServiceManager.astro';
           if (ftype === 'plan') return;
           const isProgressLike = PROGRESS_FIELD_TYPES.has(ftype);
           const label = escapeHtml(isProgressLike ? normalizeProgressLabel(f.label || '') : f.label);
-          const bigCls = idx === 0 ? 'big' : '';
+          const bigCls = ftype === 'balance' ? 'big' : '';
 
           if (isProgressLike) {
             let used = Number(f.value);
@@ -1447,7 +1447,7 @@ import ServiceManager from '../components/ServiceManager.astro';
           } else if (ftype === 'balance') {
             const num = Number(f.value);
             const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
-            html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), 'big');
+            html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), bigCls);
 
           } else if (ftype === 'reset_date') {
             if (f === resetField && hasRenderableProgress) return;
