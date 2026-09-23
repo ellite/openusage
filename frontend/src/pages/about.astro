@@ -57,6 +57,8 @@ import Layout from '../layouts/Layout.astro';
 
   <p class="built-with">Built with Astro, FastAPI, and SQLite.</p>
 
+  <p class="trademark-disclaimer">All product names, logos, brands, and trademarks shown in OpenUsage are the property of their respective owners and are used only to identify the services OpenUsage interoperates with. Their use does not imply any affiliation with or endorsement by them.</p>
+
   <style>
     .about-header {
       display: flex;
@@ -122,6 +124,13 @@ import Layout from '../layouts/Layout.astro';
       color: var(--text-muted);
       font-size: 13px;
       margin: 20px 0 0;
+    }
+    .trademark-disclaimer {
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 10px 0 0;
+      max-width: 60ch;
     }
     .update-banner {
       display: flex;
