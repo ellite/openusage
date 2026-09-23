@@ -5,19 +5,29 @@ import ServiceManager from '../components/ServiceManager.astro';
 
 <Layout title="OpenUsage">
   <div class="page-header" id="page-header">
-    <div>
+    <div class="page-heading">
       <h1>Usage</h1>
-      <p class="subtitle" id="last-updated">Loading...</p>
+      <div class="update-status">
+        <span class="update-dot is-loading" aria-hidden="true"></span>
+        <p class="subtitle" id="last-updated">Loading...</p>
+      </div>
     </div>
     <div class="header-actions">
-      <button id="refresh-btn" class="btn">↺ Refresh</button>
-      <button id="add-service-btn" class="btn btn-primary">+ Add service</button>
+      <button id="refresh-btn" class="btn dashboard-action">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg>
+        <span>Refresh</span>
+      </button>
+      <button id="add-service-btn" class="btn btn-primary dashboard-action">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Add service</span>
+      </button>
     </div>
   </div>
 
   <div id="dashboard-grid">
     <div class="grid">
-      <div class="empty-card">
+      <div class="empty-card loading-card">
+        <span class="loading-orbit" aria-hidden="true"></span>
         <p class="subtitle">Loading usage data...</p>
       </div>
     </div>
@@ -46,17 +56,99 @@ import ServiceManager from '../components/ServiceManager.astro';
 
 <style>
   .page-header {
+    position: relative;
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 24px;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding: 4px 0 22px;
+    border-bottom: 1px solid var(--border);
   }
-  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px; }
-  .subtitle { color: var(--text-muted); font-size: 14px; margin: 0; }
-  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .page-header::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--gemini), color-mix(in srgb, var(--copilot) 65%, transparent), transparent 68%);
+    content: '';
+    opacity: 0.38;
+    pointer-events: none;
+  }
+  .page-heading {
+    min-width: 0;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(30px, 4vw, 36px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1.08;
+  }
+  .subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .update-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 25px;
+    padding: 3px 10px;
+    background: color-mix(in srgb, var(--surface) 74%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .update-dot {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 14%, transparent);
+  }
+  .update-dot.is-loading {
+    background: var(--gemini);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gemini) 14%, transparent);
+    animation: update-pulse 1.4s ease-in-out infinite;
+  }
+  .update-dot.is-idle {
+    background: var(--text-muted);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted) 12%, transparent);
+  }
+  .update-dot.is-error {
+    background: var(--red);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 14%, transparent);
+  }
+  @keyframes update-pulse {
+    50% { opacity: 0.35; }
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .dashboard-action {
+    min-height: 40px;
+    gap: 7px;
+    padding-right: 17px;
+    padding-left: 14px;
+  }
+  .dashboard-action svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  #dashboard-grid {
+    position: relative;
+  }
 
   :global(.welcome-empty-container) {
-    background: var(--surface);
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gemini) 9%, transparent), transparent 42%),
+      var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 44px 32px;
@@ -170,16 +262,38 @@ import ServiceManager from '../components/ServiceManager.astro';
     gap: 20px;
   }
   :global(.category-section) {
-    margin-bottom: 32px;
+    margin-bottom: 38px;
   }
   :global(.category-section:last-child) {
     margin-bottom: 0;
   }
-  :global(.category-section h2) {
-    font-size: 15px;
+  :global(.category-heading) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  :global(.category-heading h2) {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 750;
+    letter-spacing: -0.1px;
+  }
+  :global(.category-count) {
+    padding: 2px 8px;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 10.5px;
     font-weight: 700;
-    margin: 0 0 14px;
-    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  :global(.category-rule) {
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--border), transparent);
   }
   :global(.category-empty-hint) {
     grid-column: 1 / -1;
@@ -187,12 +301,15 @@ import ServiceManager from '../components/ServiceManager.astro';
     font-size: 13px;
     border: 1px dashed var(--border);
     border-radius: var(--radius);
-    padding: 18px;
-    transition: border-color 0.15s ease, color 0.15s ease;
+    padding: 22px;
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    text-align: center;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
   }
   :global(.grid.drag-over-empty .category-empty-hint) {
     border-color: var(--gemini);
     color: var(--text);
+    background: color-mix(in srgb, var(--gemini) 7%, var(--surface));
   }
   /* Feedback when dropping into a non-empty grid's empty space (below the
      last card), where there's no hint element for the rule above to style. */
@@ -438,6 +555,25 @@ import ServiceManager from '../components/ServiceManager.astro';
     padding: 48px 24px;
     text-align: center;
   }
+  .loading-card {
+    display: flex;
+    min-height: 180px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background:
+      radial-gradient(circle at center, color-mix(in srgb, var(--gemini) 7%, transparent), transparent 48%),
+      var(--surface);
+  }
+  .loading-orbit {
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gemini);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
 
   @keyframes skeleton-pulse {
     0% { opacity: 0.25; }
@@ -445,10 +581,23 @@ import ServiceManager from '../components/ServiceManager.astro';
     100% { opacity: 0.25; }
   }
 
-  @media (max-width: 560px) {
-    .page-header { align-items: flex-start; gap: 14px; }
-    .header-actions { flex-direction: column; align-items: stretch; }
-    .header-actions .btn { white-space: nowrap; }
+  @media (max-width: 620px) {
+    .page-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 18px;
+      padding-bottom: 18px;
+    }
+    .header-actions {
+      width: 100%;
+    }
+    .header-actions .btn {
+      flex: 1;
+      white-space: nowrap;
+    }
+    :global(.category-heading) {
+      gap: 8px;
+    }
   }
   :global(.skeleton-body) {
     padding: 12px 20px 20px 24px;
@@ -866,7 +1015,12 @@ import ServiceManager from '../components/ServiceManager.astro';
       }
       return `
         <section class="category-section">
-          ${g.name ? `<h2>${escapeHtml(g.name)}</h2>` : ''}
+          ${g.name ? `
+            <div class="category-heading">
+              <h2>${escapeHtml(g.name)}</h2>
+              <span class="category-count">${g.services.length}</span>
+              <span class="category-rule" aria-hidden="true"></span>
+            </div>` : ''}
           <div class="grid" data-category-id="${catAttr}">${cardsHtml}</div>
         </section>`;
     }).join('');
@@ -1526,6 +1680,12 @@ import ServiceManager from '../components/ServiceManager.astro';
     const updatedEl = document.getElementById('last-updated');
     if (!grid) return;
 
+    const setUpdateStatus = (text: string, state: 'ready' | 'loading' | 'idle' | 'error') => {
+      if (updatedEl) updatedEl.textContent = text;
+      const dot = headerEl?.querySelector('.update-dot');
+      if (dot) dot.className = `update-dot is-${state}`;
+    };
+
     const token = localStorage.getItem('auth_token');
     if (!token) {
       window.location.href = '/login';
@@ -1599,7 +1759,7 @@ import ServiceManager from '../components/ServiceManager.astro';
               <button type="button" class="btn btn-primary btn-lg open-service-manager-btn">+ Connect Your First Service</button>
             </div>
           </div>`;
-        if (updatedEl) updatedEl.textContent = 'No active services';
+        setUpdateStatus('No active services', 'idle');
         return;
       }
 
@@ -1634,7 +1794,7 @@ import ServiceManager from '../components/ServiceManager.astro';
         });
       }
 
-      if (updatedEl) updatedEl.textContent = 'Updating usage...';
+      setUpdateStatus('Updating usage...', 'loading');
 
       // 4. Fetch usage for each service independently in parallel and update cards as they complete!
       let completedCount = 0;
@@ -1664,13 +1824,14 @@ import ServiceManager from '../components/ServiceManager.astro';
           updateCardError(svc.id, svc.service_type, svc.name, 'Network error');
         } finally {
           completedCount++;
-          if (completedCount === services.length && updatedEl) {
-            updatedEl.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+          if (completedCount === services.length) {
+            setUpdateStatus(`Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, 'ready');
           }
         }
       });
 
     } catch (err) {
+      setUpdateStatus('Backend unavailable', 'error');
       grid.innerHTML = `
         <div class="empty-card" style="grid-column: 1 / -1;">
           <p class="subtitle" style="color: var(--red);">Failed to connect to OpenUsage backend API</p>
