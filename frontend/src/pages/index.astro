@@ -340,6 +340,7 @@ import Layout from '../layouts/Layout.astro';
   :global(.lrow-top) { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
   :global(.lrow-label) { font-size: 14px; font-weight: 500; color: var(--text-dim); }
   :global(.lrow-extra) { color: var(--text-muted); font-size: 12.5px; }
+  :global(.lrow-extra-below) { color: var(--text-muted); font-size: 12.5px; margin-top: 6px; }
   :global(.lrow-pct) { font-size: 14px; font-weight: 700; }
   :global(.lrow-pct.bar-low)    { color: var(--green); }
   :global(.lrow-pct.bar-mid)    { color: var(--yellow); }
@@ -594,6 +595,35 @@ import Layout from '../layouts/Layout.astro';
     return isNaN(d.getTime()) ? null : d;
   }
 
+  // Custom field types that need a total-path (X/Y); "remaining" variants
+  // take a remaining-count value instead of a used-count one; "bar" variants
+  // render as a horizontal listRow instead of a heroBlock ring. Must stay in
+  // sync with settings.astro's identically-named sets.
+  const PROGRESS_FIELD_TYPES = new Set(['progress', 'progress_remaining', 'progress_bar', 'progress_bar_remaining']);
+  const REMAINING_PROGRESS_FIELD_TYPES = new Set(['progress_remaining', 'progress_bar_remaining']);
+  const BAR_PROGRESS_FIELD_TYPES = new Set(['progress_bar', 'progress_bar_remaining']);
+
+  // For APIs that only report a plain day-of-month (1-31) a billing/quota
+  // cycle resets on, e.g. ExchangeRate-API's refresh_day_of_month. Finds
+  // the next occurrence of that day, clamped to each month's actual length
+  // (so 31 in February resolves to the 28th/29th) and running to end-of-day
+  // so "today" still counts as upcoming rather than already past.
+  function nextDateForDayOfMonth(day: number): Date | null {
+    if (!Number.isFinite(day) || day < 1) return null;
+    const now = new Date();
+    const clampedDay = (year: number, month: number) =>
+      Math.min(Math.floor(day), new Date(year, month + 1, 0).getDate());
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    let candidate = new Date(year, month, clampedDay(year, month), 23, 59, 59);
+    if (candidate.getTime() < now.getTime()) {
+      month += 1;
+      if (month > 11) { month = 0; year += 1; }
+      candidate = new Date(year, month, clampedDay(year, month), 23, 59, 59);
+    }
+    return candidate;
+  }
+
   function escapeHtml(s: any): string {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -739,13 +769,14 @@ import Layout from '../layouts/Layout.astro';
     return `
       <div class="lrow">
         <div class="lrow-top">
-          <span class="lrow-label">${label}${extra ? ` <span class="lrow-extra">${extra}</span>` : ''}</span>
+          <span class="lrow-label">${label}</span>
           <span class="lrow-pct ${cls}">${100 - pct}% left</span>
         </div>
         <div class="bar-wrap">
           <div class="bar-fill ${cls}" style="width:${pct}%"></div>
           <div class="bar-tick" style="left:${pct}%"></div>
         </div>
+        ${extra ? `<div class="lrow-extra-below">${extra}</div>` : ''}
         ${resetsAt ? `
           <div class="lrow-resets">
             <div class="lrow-resets-countdown">Resets in ${countdown}</div>
@@ -1159,25 +1190,34 @@ import Layout from '../layouts/Layout.astro';
       const resetDate = resetField ? parseFlexibleDate(resetField.value) : null;
       const resetsAt = resetDate ? resetDate.toISOString() : null;
       const hasRenderableProgress = fields.some((f: any) =>
-        f.type === 'progress'
+        PROGRESS_FIELD_TYPES.has(f.type)
         && f.value !== null
         && f.total !== null
         && Number.isFinite(Number(f.value))
         && Number.isFinite(Number(f.total))
         && Number(f.total) > 0
       );
+      const planField = fields.find((f: any) => f.type === 'plan');
       let html = '';
+      if (planField && planField.value != null && String(planField.value).trim() !== '') {
+        html += row(escapeHtml(planField.label || 'Plan'), escapeHtml(planField.value));
+      }
       if (!fields.length) {
         html += '<p class="notice">No fields matched — check the field paths in Settings.</p>';
       } else {
         fields.forEach((f: any, idx: number) => {
           const ftype = f.type || 'text';
-          const label = escapeHtml(ftype === 'progress' ? normalizeProgressLabel(f.label || '') : f.label);
+          if (ftype === 'plan') return;
+          const isProgressLike = PROGRESS_FIELD_TYPES.has(ftype);
+          const label = escapeHtml(isProgressLike ? normalizeProgressLabel(f.label || '') : f.label);
           const bigCls = idx === 0 ? 'big' : '';
 
-          if (ftype === 'progress') {
-            const used = Number(f.value);
+          if (isProgressLike) {
+            let used = Number(f.value);
             const total = Number(f.total);
+            if (REMAINING_PROGRESS_FIELD_TYPES.has(ftype) && Number.isFinite(used) && Number.isFinite(total)) {
+              used = total - used;
+            }
             if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
               const usedPct = Math.max(0, Math.min(100, (used / total) * 100));
               const formatValue = (value: number) => Number.isInteger(value)
@@ -1185,14 +1225,18 @@ import Layout from '../layouts/Layout.astro';
                 : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
               const usageDetail = `${formatValue(used)} of ${formatValue(total)} used`;
               severities.push(getUsageSeverity(usedPct, resetsAt, null));
-              html += heroBlock(
-                label,
-                { utilization: usedPct, resets_at: resetsAt },
-                resetsAt ? null : usageDetail,
-                null,
-                resetsAt ? usageDetail : '',
-                true
-              );
+              if (BAR_PROGRESS_FIELD_TYPES.has(ftype)) {
+                html += listRow(label, usedPct, resetsAt, usageDetail, null);
+              } else {
+                html += heroBlock(
+                  label,
+                  { utilization: usedPct, resets_at: resetsAt },
+                  resetsAt ? null : usageDetail,
+                  null,
+                  resetsAt ? usageDetail : '',
+                  true
+                );
+              }
             } else {
               html += row(label, '—', bigCls);
             }
@@ -1207,9 +1251,25 @@ import Layout from '../layouts/Layout.astro';
             const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
             html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), bigCls);
 
+          } else if (ftype === 'balance') {
+            const num = Number(f.value);
+            const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));
+            html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), 'big');
+
           } else if (ftype === 'reset_date') {
             if (f === resetField && hasRenderableProgress) return;
             const d2 = parseFlexibleDate(f.value);
+            if (!d2) {
+              html += row(label, '—');
+            } else {
+              const iso = d2.toISOString();
+              const countdown = fmtCountdownFull(iso);
+              const resetText = d2.getTime() > Date.now() ? `Resets in ${countdown}` : countdown;
+              html += rowTwoLine(resetText, fmtDate(iso));
+            }
+
+          } else if (ftype === 'reset_day') {
+            const d2 = nextDateForDayOfMonth(Number(f.value));
             if (!d2) {
               html += row(label, '—');
             } else {

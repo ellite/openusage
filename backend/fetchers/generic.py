@@ -11,6 +11,10 @@ _PATH_TOKEN_RE = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
 FLATTEN_MAX_FIELDS = 300
 FLATTEN_MAX_STRING_LEN = 200
 
+# Field types with a total_path (X/Y) counterpart to resolve. Must stay in
+# sync with frontend/src/pages/settings.astro's PROGRESS_FIELD_TYPES.
+PROGRESS_FIELD_TYPES = {"progress", "progress_remaining", "progress_bar", "progress_bar_remaining"}
+
 
 def _resolve_path(obj, path: str):
     """Resolve a dotted/bracket path like 'data.items[0].balance' against a
@@ -145,7 +149,7 @@ def _extract_fields(payload, fields: list) -> list:
             "symbol": f.get("symbol") or "",
             "value": _resolve_path(payload, path),
         }
-        if field_type == "progress":
+        if field_type in PROGRESS_FIELD_TYPES:
             total_path = (f.get("total_path") or "").strip()
             extracted["total"] = _resolve_path(payload, total_path) if total_path else None
         result.append(extracted)
