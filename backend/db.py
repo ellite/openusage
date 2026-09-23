@@ -89,6 +89,15 @@ async def init_db():
         if "category_id" not in cols:
             await db.execute("ALTER TABLE user_services ADD COLUMN category_id INTEGER")
 
+        # Automatic refresh cadence is service-specific. Existing installs
+        # keep the historical five-minute behavior; individual services can
+        # opt into a slower interval without putting scheduler metadata in
+        # the provider-specific config JSON.
+        if "refresh_interval_minutes" not in cols:
+            await db.execute(
+                "ALTER TABLE user_services ADD COLUMN refresh_interval_minutes INTEGER NOT NULL DEFAULT 5"
+            )
+
         # Same pattern for the account/auth columns added alongside OIDC,
         # password reset and 2FA. password_hash stays NOT NULL even for
         # OIDC-only accounts (they get an unusable random hash on creation)
@@ -157,8 +166,8 @@ async def init_db():
 
         # Tracks whether a given service/threshold-type pairing is still
         # "armed" to fire a push notification. Sending sets armed=0 so the
-        # background refresh loop (every 5 minutes) doesn't re-notify on
-        # every poll while usage stays above the threshold; dropping back
+        # background refresh loop doesn't re-notify on every service-specific
+        # poll while usage stays above the threshold; dropping back
         # below it (a new session, week, or billing month) sets it back to 1.
         await db.execute("""
             CREATE TABLE IF NOT EXISTS service_notify_state (
@@ -332,15 +341,26 @@ async def add_user_service(
     config: dict,
     category_id: int | None = None,
     notify_thresholds: dict | None = None,
+    refresh_interval_minutes: int = 5,
 ):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """
-            INSERT INTO user_services (user_id, service_type, name, config, category_id, notify_thresholds, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO user_services (user_id, service_type, name, config, category_id, notify_thresholds, refresh_interval_minutes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, service_type, name, json.dumps(config), category_id, json.dumps(notify_thresholds or {}), now, now),
+            (
+                user_id,
+                service_type,
+                name,
+                json.dumps(config),
+                category_id,
+                json.dumps(notify_thresholds or {}),
+                refresh_interval_minutes,
+                now,
+                now,
+            ),
         )
         await db.commit()
         return cursor.lastrowid
@@ -353,6 +373,7 @@ async def update_user_service(
     config: dict,
     category_id: int | None = None,
     notify_thresholds: dict | None = None,
+    refresh_interval_minutes: int | None = None,
 ):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
@@ -363,10 +384,20 @@ async def update_user_service(
             await db.execute(
                 """
                 UPDATE user_services
-                SET name = ?, config = ?, category_id = ?, updated_at = ?
+                SET name = ?, config = ?, category_id = ?,
+                    refresh_interval_minutes = COALESCE(?, refresh_interval_minutes),
+                    updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
-                (name, json.dumps(config), category_id, now, service_id, user_id),
+                (
+                    name,
+                    json.dumps(config),
+                    category_id,
+                    refresh_interval_minutes,
+                    now,
+                    service_id,
+                    user_id,
+                ),
             )
         else:
             normalized_thresholds = notify_thresholds or {}
@@ -380,7 +411,9 @@ async def update_user_service(
             await db.execute(
                 """
                 UPDATE user_services
-                SET name = ?, config = ?, category_id = ?, notify_thresholds = ?, updated_at = ?
+                SET name = ?, config = ?, category_id = ?, notify_thresholds = ?,
+                    refresh_interval_minutes = COALESCE(?, refresh_interval_minutes),
+                    updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
                 (
@@ -388,6 +421,7 @@ async def update_user_service(
                     json.dumps(config),
                     category_id,
                     json.dumps(normalized_thresholds),
+                    refresh_interval_minutes,
                     now,
                     service_id,
                     user_id,

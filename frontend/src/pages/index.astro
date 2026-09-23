@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import ServiceManager from '../components/ServiceManager.astro';
 ---
 
 <Layout title="OpenUsage">
@@ -8,7 +9,10 @@ import Layout from '../layouts/Layout.astro';
       <h1>Usage</h1>
       <p class="subtitle" id="last-updated">Loading...</p>
     </div>
-    <button id="refresh-btn" class="btn">↺ Refresh</button>
+    <div class="header-actions">
+      <button id="refresh-btn" class="btn">↺ Refresh</button>
+      <button id="add-service-btn" class="btn btn-primary">+ Add service</button>
+    </div>
   </div>
 
   <div id="dashboard-grid">
@@ -36,6 +40,8 @@ import Layout from '../layouts/Layout.astro';
       </div>
     </div>
   </div>
+
+  <ServiceManager />
 </Layout>
 
 <style>
@@ -47,22 +53,7 @@ import Layout from '../layouts/Layout.astro';
   }
   h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px; }
   .subtitle { color: var(--text-muted); font-size: 14px; margin: 0; }
-
-  .btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: var(--shadow);
-    transition: background 0.15s;
-  }
-  .btn:hover { background: var(--surface-2); }
-  .btn-primary { background: var(--text); color: var(--bg); border: none; }
-  .btn-primary:hover { opacity: 0.9; }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
 
   :global(.welcome-empty-container) {
     background: var(--surface);
@@ -263,6 +254,34 @@ import Layout from '../layouts/Layout.astro';
   :global(.drag-handle svg) { width: 14px; height: 14px; display: block; }
   :global(body.edit-mode .drag-handle) { display: inline-flex; }
 
+  :global(.card-actions) {
+    display: none;
+    align-items: center;
+    gap: 6px;
+  }
+  :global(body.edit-mode .card-actions) { display: flex; }
+  :global(body.edit-mode .card-status) { display: none; }
+  :global(.card-action-btn) {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 9px;
+    box-shadow: none;
+  }
+  :global(.card-action-btn svg) { width: 15px; height: 15px; }
+  :global(.card-action-btn.card-edit-btn) {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 12%, var(--surface));
+    border-color: color-mix(in srgb, var(--yellow) 38%, transparent);
+  }
+  :global(.card-action-btn.card-edit-btn:hover),
+  :global(.card-action-btn.card-edit-btn:focus-visible) {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 22%, var(--surface));
+    border-color: var(--yellow);
+  }
+  :global(.card-controls) { display: flex; align-items: center; gap: 8px; }
+
   :global(.icon) {
     width: 34px;
     height: 34px;
@@ -424,6 +443,12 @@ import Layout from '../layouts/Layout.astro';
     0% { opacity: 0.25; }
     50% { opacity: 0.65; }
     100% { opacity: 0.25; }
+  }
+
+  @media (max-width: 560px) {
+    .page-header { align-items: flex-start; gap: 14px; }
+    .header-actions { flex-direction: column; align-items: stretch; }
+    .header-actions .btn { white-space: nowrap; }
   }
   :global(.skeleton-body) {
     padding: 12px 20px 20px 24px;
@@ -833,7 +858,7 @@ import Layout from '../layouts/Layout.astro';
     return groupServicesByCategory(services).map(g => {
       const cardsHtml = g.services.length
         ? g.services.map(cardRenderer).join('')
-        : `<div class="category-empty-hint">No services in this category yet -- drag one here, or assign it from <a href="/settings">Settings</a>.</div>`;
+        : `<div class="category-empty-hint">No services in this category yet — use edit mode to drag one here.</div>`;
       const catAttr = g.id ?? '';
 
       if (g.name === null && allCategories.length === 0) {
@@ -848,8 +873,8 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // Service types whose auth is a pasted cURL (cookie-based session), so a
-  // stale/expired card can offer a "paste new cURL" shortcut instead of a
-  // trip to Settings. Each maps the /api/import-curl/<type> response onto
+  // stale/expired card can offer a "paste new cURL" shortcut instead of
+  // opening the full editor. Each maps the /api/import-curl/<type> response onto
   // the config fields that endpoint's cookies actually live in.
   const CURL_IMPORT_CONFIG: Record<string, { endpoint: string; apply: (res: any, cfg: any) => any }> = {
     claude: {
@@ -906,25 +931,41 @@ import Layout from '../layouts/Layout.astro';
     return iconMap[type] || '';
   }
 
+  function dragHandleHtml(): string {
+    return `<span class="drag-handle" draggable="false" title="Drag to reorder" aria-label="Drag to reorder">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
+    </span>`;
+  }
+
+  function cardActionsHtml(svcId: number | string, name: string): string {
+    const safeName = escapeHtml(name);
+    return `<div class="card-actions">
+      <button type="button" class="btn card-action-btn card-edit-btn" data-svc-id="${svcId}" title="Edit ${safeName}" aria-label="Edit ${safeName}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+      <button type="button" class="btn btn-danger card-action-btn card-delete-btn" data-svc-id="${svcId}" title="Delete ${safeName}" aria-label="Delete ${safeName}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+      </button>
+    </div>`;
+  }
+
   function renderSkeletonCard(svc: any) {
     const svcId = svc.id;
     const type = svc.service_type;
     const name = svc.name;
 
-    const isEditMode = document.body.classList.contains('edit-mode');
     return `
-      <div class="card skeleton-card" id="card-${svcId}" draggable="${isEditMode ? 'true' : 'false'}" data-id="${svcId}">
+      <div class="card skeleton-card" id="card-${svcId}" draggable="false" data-id="${svcId}">
         <span class="accent-bar none" id="accent-${svcId}"></span>
         <div class="card-header">
           <div class="service-info">
-            <span class="drag-handle" title="Drag to reorder">
-              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
-            </span>
+            ${dragHandleHtml()}
             <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
-            <span class="service-name">${name}</span>
+            <span class="service-name">${escapeHtml(name)}</span>
           </div>
-          <div class="status">
-            <span class="badge" id="badge-${svcId}">Fetching...</span>
+          <div class="card-controls">
+            ${cardActionsHtml(svcId, name)}
+            <div class="status card-status"><span class="badge" id="badge-${svcId}">Fetching...</span></div>
           </div>
         </div>
         <div class="card-body skeleton-body" id="body-${svcId}">
@@ -940,21 +981,19 @@ import Layout from '../layouts/Layout.astro';
     const type = item.service_type;
     const name = item.name;
     const result = item.result || {};
-    const isEditMode = document.body.classList.contains('edit-mode');
 
     return `
-      <div class="card" id="card-${svcId}" draggable="${isEditMode ? 'true' : 'false'}" data-id="${svcId}">
+      <div class="card" id="card-${svcId}" draggable="false" data-id="${svcId}">
         <span class="accent-bar none" id="accent-${svcId}"></span>
         <div class="card-header">
           <div class="service-info">
-            <span class="drag-handle" title="Drag to reorder">
-              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
-            </span>
+            ${dragHandleHtml()}
             <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
-            <span class="service-name">${name}</span>
+            <span class="service-name">${escapeHtml(name)}</span>
           </div>
-          <div class="status">
-            <span class="badge" id="badge-${svcId}">—</span>
+          <div class="card-controls">
+            ${cardActionsHtml(svcId, name)}
+            <div class="status card-status"><span class="badge" id="badge-${svcId}">—</span></div>
           </div>
         </div>
         <div class="card-body" id="body-${svcId}"></div>
@@ -972,7 +1011,7 @@ import Layout from '../layouts/Layout.astro';
     if (!result.configured) {
       setBadge(badge, 'Not configured', 'none');
       setAccent(svcId, 'none');
-      body.innerHTML = '<p class="notice">Configure this service in <a href="/settings">Settings</a>.</p>';
+      body.innerHTML = `<p class="notice">This service needs configuration. <button type="button" class="stale-curl-link card-edit-btn" data-svc-id="${svcId}">Edit service</button></p>`;
       return;
     }
     if (result.status === 'error') {
@@ -1328,7 +1367,7 @@ import Layout from '../layouts/Layout.astro';
     const hint = grid.querySelector('.category-empty-hint');
     if (hasCards && hint) hint.remove();
     if (!hasCards && !hint) {
-      grid.innerHTML = '<div class="category-empty-hint">No services in this category yet -- drag one here, or assign it from <a href="/settings">Settings</a>.</div>';
+      grid.innerHTML = '<div class="category-empty-hint">No services in this category yet — use edit mode to drag one here.</div>';
     }
   }
 
@@ -1353,9 +1392,12 @@ import Layout from '../layouts/Layout.astro';
     const isEditMode = document.body.classList.contains('edit-mode');
 
     grid.querySelectorAll('.card').forEach((card: any) => {
-      card.setAttribute('draggable', isEditMode ? 'true' : 'false');
+      card.setAttribute('draggable', 'false');
+      const handle = card.querySelector('.drag-handle') as HTMLElement | null;
+      if (!handle) return;
+      handle.setAttribute('draggable', isEditMode ? 'true' : 'false');
 
-      card.addEventListener('dragstart', (e: DragEvent) => {
+      handle.addEventListener('dragstart', (e: DragEvent) => {
         if (!document.body.classList.contains('edit-mode')) {
           e.preventDefault();
           return false;
@@ -1368,7 +1410,7 @@ import Layout from '../layouts/Layout.astro';
         }
       });
 
-      card.addEventListener('dragend', () => {
+      handle.addEventListener('dragend', () => {
         card.classList.remove('dragging');
         // The dragged card may have landed in a different grid than the one
         // this listener was attached in, so clear highlights everywhere.
@@ -1463,14 +1505,13 @@ import Layout from '../layouts/Layout.astro';
         <span class="accent-bar error" id="accent-${svcId}"></span>
         <div class="card-header">
           <div class="service-info">
-            <span class="drag-handle" title="Drag to reorder">
-              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 4a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zM4 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0z"></path></svg>
-            </span>
+            ${dragHandleHtml()}
             <span class="icon ${type}-bg">${getServiceIconHtml(type, svcId)}</span>
-            <span class="service-name">${name}</span>
+            <span class="service-name">${escapeHtml(name)}</span>
           </div>
-          <div class="status">
-            <span class="badge error">Error</span>
+          <div class="card-controls">
+            ${cardActionsHtml(svcId, name)}
+            <div class="status card-status"><span class="badge error">Error</span></div>
           </div>
         </div>
         <div class="card-body">
@@ -1509,7 +1550,7 @@ import Layout from '../layouts/Layout.astro';
       const services = await res.json();
       allServices = Array.isArray(services) ? services : [];
       if (!Array.isArray(services) || services.length === 0) {
-        if (headerEl) headerEl.style.display = 'none';
+        if (headerEl) headerEl.style.display = 'flex';
         grid.innerHTML = `
           <div class="welcome-empty-container" style="grid-column: 1 / -1;">
             <div class="welcome-hero-badge">
@@ -1555,7 +1596,7 @@ import Layout from '../layouts/Layout.astro';
             </div>
 
             <div class="welcome-actions">
-              <a href="/settings" class="btn btn-primary btn-lg">+ Connect Your First Service</a>
+              <button type="button" class="btn btn-primary btn-lg open-service-manager-btn">+ Connect Your First Service</button>
             </div>
           </div>`;
         if (updatedEl) updatedEl.textContent = 'No active services';
@@ -1639,16 +1680,69 @@ import Layout from '../layouts/Layout.astro';
 
   document.getElementById('edit-toggle')?.addEventListener('click', function (this: HTMLElement) {
     const isEditMode = this.classList.toggle('active');
+    this.setAttribute('aria-pressed', String(isEditMode));
+    this.setAttribute('title', isEditMode ? 'Finish managing dashboard' : 'Manage dashboard');
     document.body.classList.toggle('edit-mode', isEditMode);
     const grid = document.getElementById('dashboard-grid');
     if (grid) {
       grid.querySelectorAll('.card').forEach((c: any) => {
-        c.setAttribute('draggable', isEditMode ? 'true' : 'false');
+        c.setAttribute('draggable', 'false');
+        c.querySelector('.drag-handle')?.setAttribute('draggable', isEditMode ? 'true' : 'false');
       });
     }
   });
 
   document.getElementById('refresh-btn')?.addEventListener('click', () => loadDashboard(true));
+
+  async function deleteServiceFromDashboard(serviceId: number) {
+    const service = allServices.find((candidate: any) => candidate.id === serviceId);
+    if (!service || !confirm(`Delete “${service.name}”? This removes its saved configuration and usage history.`)) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/user-services/${serviceId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Could not delete service');
+
+      const savedOrder = getSavedOrder().filter(id => id !== String(serviceId));
+      localStorage.setItem('dash_order', JSON.stringify(savedOrder));
+      const dashboard = document.getElementById('dashboard-grid');
+      if (dashboard) dashboard.innerHTML = '';
+      await loadDashboard(false);
+    } catch (error: any) {
+      alert(error.message || 'Could not delete service');
+    }
+  }
+
+  document.addEventListener('click', (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    const editButton = target.closest('.card-edit-btn') as HTMLElement | null;
+    const deleteButton = target.closest('.card-delete-btn') as HTMLElement | null;
+    const welcomeButton = target.closest('.open-service-manager-btn');
+
+    if (editButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      document.dispatchEvent(new CustomEvent('open-service-manager', {
+        detail: { id: Number(editButton.dataset.svcId) },
+      }));
+    } else if (deleteButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      void deleteServiceFromDashboard(Number(deleteButton.dataset.svcId));
+    } else if (welcomeButton) {
+      document.dispatchEvent(new CustomEvent('open-service-manager'));
+    }
+  });
+
+  document.addEventListener('services-changed', () => {
+    const dashboard = document.getElementById('dashboard-grid');
+    if (dashboard) dashboard.innerHTML = '';
+    void loadDashboard(true);
+  });
 
   // Paste-cURL popup: cards get re-rendered on every refresh, so the trigger
   // button never keeps a stable listener -- delegate from the document instead.

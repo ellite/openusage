@@ -15,7 +15,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Loaded before the local modules below so their own module-level os.getenv()
 # calls (oidc.py, email_notifier.py, fetchers/chatgpt.py, ...) see it too.
@@ -85,11 +85,12 @@ from fetchers.generic import fetch_generic, test_generic
 ENABLE_ACCOUNT_CREATION = os.getenv("ENABLE_ACCOUNT_CREATION", "true").lower() in ("true", "1", "yes")
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 PASSWORD_RESET_MAX_AGE = timedelta(hours=1)
-REFRESH_INTERVAL_SECONDS = 5 * 60  # 5 minutes
-# Under healthy operation the background refresh loop keeps cached data within
-# one REFRESH_INTERVAL_SECONDS window, so data older than this multiple can only
-# mean live refreshes have been failing -- even across a process restart, where
-# the in-memory _last_fetch_error tracker below starts out empty.
+DEFAULT_REFRESH_INTERVAL_MINUTES = 5
+REFRESH_SCHEDULER_TICK_SECONDS = 60
+# Under healthy operation each service refreshes within its configured window,
+# so data older than this multiple can only mean live refreshes have been
+# failing -- even across a process restart, where the in-memory trackers below
+# start out empty.
 STALE_DATA_MULTIPLIER = 3
 
 
@@ -108,6 +109,11 @@ SERVICE_FETCHERS = {
 # the fast cached-data path (below) can still surface that the background
 # refresh loop is failing, not just requests that trigger a live fetch themselves.
 _last_fetch_error: dict[int, str] = {}
+
+# Failed attempts are not written to service_usage_history, but they still need
+# to respect the service's configured cadence. Without this timestamp, a failed
+# endpoint with stale cached data would be retried every scheduler tick.
+_last_fetch_attempt_at: dict[int, datetime] = {}
 
 # Coalesces concurrent live-fetch requests for the same service into one
 # in-flight task. Without this, a foreground force-refresh (e.g. the
@@ -185,6 +191,7 @@ async def _live_fetch_and_save(user_service: dict) -> dict:
     svc_type = user_service["service_type"]
     svc_name = user_service["name"]
     config = user_service.get("config", {})
+    _last_fetch_attempt_at[svc_id] = datetime.now(timezone.utc)
 
     fetcher = SERVICE_FETCHERS.get(svc_type)
     if not fetcher:
@@ -273,14 +280,33 @@ def _trigger_background_live_fetch(user_service: dict):
 
 
 async def _fetch_and_save_user_service(
-    user_service: dict, force_refresh: bool = False, max_age_seconds: int = 300
+    user_service: dict, force_refresh: bool = False, max_age_seconds: int | None = None
 ) -> dict:
     svc_id = user_service["id"]
     svc_type = user_service["service_type"]
     svc_name = user_service["name"]
+    if max_age_seconds is None:
+        try:
+            interval_minutes = int(
+                user_service.get("refresh_interval_minutes", DEFAULT_REFRESH_INTERVAL_MINUTES)
+            )
+        except (TypeError, ValueError):
+            interval_minutes = DEFAULT_REFRESH_INTERVAL_MINUTES
+        max_age_seconds = max(1, interval_minutes) * 60
 
     # 1. If not force_refresh, check if we have any cached data
     if not force_refresh:
+        inflight = _inflight_fetches.get(svc_id)
+        if inflight is not None and not inflight.done():
+            return await inflight
+
+        last_attempt = _last_fetch_attempt_at.get(svc_id)
+        attempt_age = (
+            (datetime.now(timezone.utc) - last_attempt).total_seconds()
+            if last_attempt is not None
+            else None
+        )
+        attempt_is_due = attempt_age is None or attempt_age >= max_age_seconds
         cached_data, fetched_at = await get_latest_service_usage(svc_id)
         if cached_data and fetched_at:
             age = None
@@ -294,7 +320,7 @@ async def _fetch_and_save_user_service(
             if not stale_error and age is not None and age >= max_age_seconds * STALE_DATA_MULTIPLIER:
                 stale_error = f"No successful refresh since {fetched_at}"
 
-            if stale_error or (age is not None and age >= max_age_seconds):
+            if age is not None and age >= max_age_seconds and attempt_is_due:
                 _trigger_background_live_fetch(user_service)
 
             return {
@@ -311,6 +337,18 @@ async def _fetch_and_save_user_service(
                 },
             }
 
+        if not attempt_is_due and svc_id in _last_fetch_error:
+            return {
+                "id": svc_id,
+                "service_type": svc_type,
+                "name": svc_name,
+                "result": {
+                    "configured": True,
+                    "status": "error",
+                    "error": _last_fetch_error[svc_id],
+                },
+            }
+
     # 2. Force refresh or no cached data yet -> live fetch (joins an
     # in-flight fetch for this service if one is already running)
     return await _get_or_start_live_fetch(user_service)
@@ -323,11 +361,11 @@ async def _refresh_loop():
             all_services = await get_all_user_services()
             if all_services:
                 await asyncio.gather(
-                    *(_fetch_and_save_user_service(svc, force_refresh=True) for svc in all_services)
+                    *(_fetch_and_save_user_service(svc) for svc in all_services)
                 )
         except Exception:
             pass
-        await asyncio.sleep(REFRESH_INTERVAL_SECONDS)
+        await asyncio.sleep(REFRESH_SCHEDULER_TICK_SECONDS)
 
 
 @asynccontextmanager
@@ -754,6 +792,9 @@ class UserServiceCreate(BaseModel):
     config: dict
     category_id: Optional[int] = None
     notify_thresholds: Optional[dict] = None
+    refresh_interval_minutes: int = Field(
+        default=DEFAULT_REFRESH_INTERVAL_MINUTES, ge=1, le=10080
+    )
 
 
 @app.post("/api/user-services")
@@ -762,7 +803,13 @@ async def create_user_service(req: UserServiceCreate, user: dict = Depends(get_c
         raise HTTPException(status_code=400, detail=f"Invalid service_type: {req.service_type}")
     svc_name = req.name.strip() or req.service_type.capitalize()
     svc_id = await add_user_service(
-        user["id"], req.service_type, svc_name, req.config, req.category_id, req.notify_thresholds
+        user["id"],
+        req.service_type,
+        svc_name,
+        req.config,
+        req.category_id,
+        req.notify_thresholds,
+        req.refresh_interval_minutes,
     )
     return {"status": "ok", "id": svc_id}
 
@@ -774,6 +821,9 @@ class UserServiceUpdate(BaseModel):
     # None means "not part of this update" so category moves, cURL refreshes,
     # and provider credential rotation preserve the existing thresholds.
     notify_thresholds: Optional[dict] = None
+    # None likewise preserves the cadence for older clients and internal
+    # config/category-only updates.
+    refresh_interval_minutes: Optional[int] = Field(default=None, ge=1, le=10080)
 
 
 @app.put("/api/user-services/{service_id}")
@@ -789,8 +839,19 @@ async def update_service(
         if req.notify_thresholds is None
         else req.notify_thresholds
     )
+    effective_refresh_interval = (
+        existing.get("refresh_interval_minutes", DEFAULT_REFRESH_INTERVAL_MINUTES)
+        if req.refresh_interval_minutes is None
+        else req.refresh_interval_minutes
+    )
     await update_user_service(
-        service_id, user["id"], svc_name, req.config, req.category_id, req.notify_thresholds
+        service_id,
+        user["id"],
+        svc_name,
+        req.config,
+        req.category_id,
+        req.notify_thresholds,
+        req.refresh_interval_minutes,
     )
     _last_fetch_error.pop(service_id, None)
     updated_svc = {
@@ -799,6 +860,7 @@ async def update_service(
         "config": req.config,
         "category_id": req.category_id,
         "notify_thresholds": effective_thresholds,
+        "refresh_interval_minutes": effective_refresh_interval,
     }
     _trigger_background_live_fetch(updated_svc)
     return {"status": "ok"}
@@ -810,6 +872,8 @@ async def delete_service(service_id: int, user: dict = Depends(get_current_user)
     if not existing:
         raise HTTPException(status_code=404, detail="Service not found")
     await delete_user_service(service_id, user["id"])
+    _last_fetch_error.pop(service_id, None)
+    _last_fetch_attempt_at.pop(service_id, None)
     return {"status": "ok"}
 
 
