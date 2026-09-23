@@ -1525,6 +1525,12 @@ import ServiceManager from '../components/ServiceManager.astro';
     }
   }
 
+  function refreshCategoryCount(grid: HTMLElement) {
+    const section = grid.closest('.category-section');
+    const countEl = section?.querySelector('.category-count');
+    if (countEl) countEl.textContent = String(grid.querySelectorAll('.card').length);
+  }
+
   async function persistCategoryIfChanged(svcId: number, newCategoryId: number | null) {
     const svc = allServices.find((s: any) => s.id === svcId);
     if (!svc || svc.category_id === newCategoryId) return;
@@ -1600,7 +1606,11 @@ import ServiceManager from '../components/ServiceManager.astro';
           const svcId = parseInt(dragSrcEl.dataset.id || '0');
           persistCategoryIfChanged(svcId, targetCategoryOf(grid));
           refreshEmptyHint(grid);
-          if (srcGrid && srcGrid !== grid) refreshEmptyHint(srcGrid);
+          if (srcGrid && srcGrid !== grid) {
+            refreshEmptyHint(srcGrid);
+            refreshCategoryCount(srcGrid);
+            refreshCategoryCount(grid);
+          }
         }
       });
     });
@@ -1631,7 +1641,11 @@ import ServiceManager from '../components/ServiceManager.astro';
         const svcId = parseInt(dragSrcEl.dataset.id || '0');
         persistCategoryIfChanged(svcId, targetCategoryOf(grid));
         refreshEmptyHint(grid);
-        if (srcGrid && srcGrid !== grid) refreshEmptyHint(srcGrid);
+        if (srcGrid && srcGrid !== grid) {
+          refreshEmptyHint(srcGrid);
+          refreshCategoryCount(srcGrid);
+          refreshCategoryCount(grid);
+        }
       }
     });
   }

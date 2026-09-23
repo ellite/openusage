@@ -530,6 +530,20 @@ import Layout from '../layouts/Layout.astro';
       box-sizing: border-box;
       font-family: inherit;
     }
+    select.form-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 14px;
+      padding-right: 36px;
+    }
+    select.form-select option {
+      background: var(--surface-2);
+      color: var(--text);
+    }
     .form-group input:focus, .form-select:focus, textarea:focus {
       border-color: var(--gemini);
     }
@@ -673,12 +687,23 @@ import Layout from '../layouts/Layout.astro';
       background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 8px;
+      padding: 10px 26px 10px 8px;
       border-radius: var(--radius-sm);
       font-size: 13px;
       outline: none;
       box-sizing: border-box;
       font-family: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 12px;
+    }
+    :global(.custom-field-row select option) {
+      background: var(--surface-2);
+      color: var(--text);
     }
     :global(.custom-field-row .cf-symbol) {
       flex: 0 0 56px !important;
