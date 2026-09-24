@@ -3,6 +3,7 @@ set -e
 
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
+FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-*}
 
 # Timezone
 if [ -n "$TZ" ]; then
@@ -20,4 +21,5 @@ chown -R "$PUID:$PGID" /app/data
 # Allow the unprivileged user to write to Docker's stdout/stderr
 chmod o+w /dev/stdout /dev/stderr
 
-exec gosu openusage uvicorn main:app --host 0.0.0.0 --port 8000
+exec gosu openusage uvicorn main:app --host 0.0.0.0 --port 8000 \
+    --proxy-headers --forwarded-allow-ips "$FORWARDED_ALLOW_IPS"

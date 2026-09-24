@@ -1,7 +1,7 @@
-const CACHE_NAME = 'openusage-v2';
+const CACHE_NAME = 'openusage-v3';
 const STATIC_ASSETS = [
   '/',
-  '/settings',
+  '/settings/',
   '/manifest.json',
   '/favicon.svg',
   '/pwa-192x192.png',
