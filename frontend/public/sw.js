@@ -1,12 +1,12 @@
-const CACHE_NAME = 'openusage-v3';
+const CACHE_NAME = 'openusage-v4';
 const STATIC_ASSETS = [
   '/',
   '/settings/',
-  '/manifest.json',
-  '/favicon.svg',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
-  '/apple-touch-icon.png',
+  '/manifest.json?v=20260924',
+  '/favicon.svg?v=20260924',
+  '/pwa-192x192.png?v=20260924',
+  '/pwa-512x512.png?v=20260924',
+  '/apple-touch-icon.png?v=20260924',
   '/fonts/InterVariable.woff2',
   '/icons/claude.svg',
   '/icons/gemini.svg',
@@ -90,8 +90,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'OpenUsage', {
       body: data.body || '',
       data: { url: data.url || '/' },
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/favicon.svg?v=20260924',
+      badge: '/favicon.svg?v=20260924',
     })
   );
 });
