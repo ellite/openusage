@@ -1,4 +1,4 @@
-const CACHE_NAME = 'openusage-v1';
+const CACHE_NAME = 'openusage-v2';
 const STATIC_ASSETS = [
   '/',
   '/settings',

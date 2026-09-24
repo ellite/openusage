@@ -1,5 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="9" fill="#4f46e5"/>
-  <circle cx="16" cy="16" r="9" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="4"/>
-  <path d="M16 7a9 9 0 0 1 9 9" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 430" width="100%" height="100%">
+  <defs>
+    <linearGradient id="barLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5575ff" />
+      <stop offset="100%" stop-color="#7645f7" />
+    </linearGradient>
+    <linearGradient id="barMiddle" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2bd7ff" />
+      <stop offset="100%" stop-color="#147eff" />
+    </linearGradient>
+    <linearGradient id="barRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#49ffa8" />
+      <stop offset="100%" stop-color="#00be8f" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="260" width="106" height="170" rx="22" ry="22" fill="url(#barLeft)" />
+  <rect x="132" y="145" width="110" height="285" rx="24" ry="24" fill="url(#barMiddle)" />
+  <rect x="268" y="0" width="106" height="430" rx="24" ry="24" fill="url(#barRight)" />
 </svg>

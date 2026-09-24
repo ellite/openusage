@@ -6,7 +6,7 @@ import Layout from '../layouts/Layout.astro';
   <div class="about-header">
     <img src="/favicon.svg" alt="OpenUsage logo" width="56" height="56" />
     <div>
-      <h1>OpenUsage</h1>
+      <h1><span>Open</span><span class="brand-accent">Usage</span></h1>
       <p class="subtitle" id="about-version">Version …</p>
     </div>
   </div>
@@ -67,8 +67,11 @@ import Layout from '../layouts/Layout.astro';
       margin-bottom: 28px;
     }
     .about-header h1 {
+      display: inline-flex;
+      align-items: baseline;
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 750;
+      letter-spacing: -1px;
       margin: 0 0 4px;
     }
     .subtitle {
