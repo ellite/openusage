@@ -28,7 +28,7 @@ const { title } = Astro.props;
         var theme = stored || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
         document.documentElement.setAttribute('data-theme', theme);
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'light' ? '#efeee6' : '#0a0a0a');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f3f7fb' : '#0a0a0a');
       })();
     </script>
     <style is:global>
@@ -70,27 +70,27 @@ const { title } = Astro.props;
 
       @media (prefers-color-scheme: light) {
         :root:not([data-theme="dark"]) {
-          --bg: #efeee6;
+          --bg: #f3f7fb;
           --surface: #ffffff;
-          --surface-2: #f5f4ec;
-          --border: #e7e4d8;
-          --text: #1a1915;
-          --text-muted: #736e5e;
-          --text-dim: #484538;
-          --shadow: 0 1px 2px rgba(60, 55, 30, 0.06), 0 10px 24px -14px rgba(60, 55, 30, 0.18);
+          --surface-2: #edf3f8;
+          --border: #dce5ee;
+          --text: #142033;
+          --text-muted: #68788c;
+          --text-dim: #3f5065;
+          --shadow: 0 1px 2px rgba(25, 55, 85, 0.05), 0 12px 28px -16px rgba(25, 55, 85, 0.2);
           color-scheme: light;
         }
       }
 
       :root[data-theme="light"] {
-        --bg: #efeee6;
+        --bg: #f3f7fb;
         --surface: #ffffff;
-        --surface-2: #f5f4ec;
-        --border: #e7e4d8;
-        --text: #1a1915;
-        --text-muted: #736e5e;
-        --text-dim: #484538;
-        --shadow: 0 1px 2px rgba(60, 55, 30, 0.06), 0 10px 24px -14px rgba(60, 55, 30, 0.18);
+        --surface-2: #edf3f8;
+        --border: #dce5ee;
+        --text: #142033;
+        --text-muted: #68788c;
+        --text-dim: #3f5065;
+        --shadow: 0 1px 2px rgba(25, 55, 85, 0.05), 0 12px 28px -16px rgba(25, 55, 85, 0.2);
         color-scheme: light;
       }
 
@@ -103,6 +103,10 @@ const { title } = Astro.props;
         min-height: 100vh;
         font-variant-numeric: tabular-nums;
         transition: background 0.15s ease, color 0.15s ease;
+      }
+      :root[data-theme="light"] img[src="/icons/custom.svg"] {
+        filter: brightness(0) saturate(100%);
+        opacity: 0.78;
       }
       /* General Inline Links */
       a, a:visited {
@@ -254,12 +258,12 @@ const { title } = Astro.props;
         margin-left: auto;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 9px;
       }
 
       .icon-btn {
-        width: 34px;
-        height: 34px;
+        width: 38px;
+        height: 38px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -273,7 +277,7 @@ const { title } = Astro.props;
       }
       .icon-btn:hover { color: var(--text); background: var(--surface-2); }
       .icon-btn.active { color: var(--green); border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--surface)); }
-      .icon-btn svg { width: 16px; height: 16px; }
+      .icon-btn svg { width: 18px; height: 18px; }
       .edit-toggle .icon-check { display: none; }
       .edit-toggle.active .icon-pencil { display: none; }
       .edit-toggle.active .icon-check { display: block; }
@@ -288,17 +292,17 @@ const { title } = Astro.props;
       }
 
       .user-menu-btn {
-        height: 34px;
+        height: 38px;
         box-sizing: border-box;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 7px;
         background: var(--surface);
         border: 1px solid var(--border);
         color: var(--text);
-        padding: 0 12px;
+        padding: 0 14px;
         border-radius: var(--radius-sm);
-        font-size: 13.5px;
+        font-size: 14px;
         font-weight: 600;
         cursor: pointer;
         box-shadow: var(--shadow);
@@ -310,22 +314,22 @@ const { title } = Astro.props;
       }
 
       .user-menu-avatar {
-        width: 18px;
-        height: 18px;
+        width: 21px;
+        height: 21px;
         border-radius: 50%;
         background: var(--gemini);
         color: white;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
       }
 
       .dropdown-caret {
-        width: 14px;
-        height: 14px;
+        width: 15px;
+        height: 15px;
         color: var(--text-muted);
         transition: transform 0.2s ease;
       }
@@ -337,13 +341,13 @@ const { title } = Astro.props;
       .user-dropdown-menu {
         position: absolute;
         right: 0;
-        top: calc(100% + 6px);
-        width: 170px;
+        top: calc(100% + 8px);
+        width: 184px;
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-        padding: 6px;
+        padding: 7px;
         z-index: 100;
         display: flex;
         flex-direction: column;
@@ -353,9 +357,9 @@ const { title } = Astro.props;
       .dropdown-item, .dropdown-item:visited {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        font-size: 13.5px;
+        gap: 11px;
+        padding: 10px 13px;
+        font-size: 14px;
         font-weight: 500;
         color: var(--text-dim);
         text-decoration: none;
@@ -384,8 +388,8 @@ const { title } = Astro.props;
       }
 
       .dropdown-icon {
-        width: 16px;
-        height: 16px;
+        width: 17px;
+        height: 17px;
         flex-shrink: 0;
       }
 
@@ -523,7 +527,7 @@ const { title } = Astro.props;
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('theme', next);
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', next === 'light' ? '#efeee6' : '#0a0a0a');
+        if (meta) meta.setAttribute('content', next === 'light' ? '#f3f7fb' : '#0a0a0a');
       });
 
       if ('serviceWorker' in navigator) {

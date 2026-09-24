@@ -6,10 +6,13 @@ import ServiceManager from '../components/ServiceManager.astro';
 <Layout title="OpenUsage">
   <div class="page-header" id="page-header">
     <div class="page-heading">
-      <h1>Usage</h1>
-      <div class="update-status">
-        <span class="update-dot is-loading" aria-hidden="true"></span>
-        <p class="subtitle" id="last-updated">Loading...</p>
+      <p class="page-kicker"><span aria-hidden="true"></span> Dashboard</p>
+      <div class="header-meta">
+        <div class="update-status">
+          <span class="update-dot is-loading" aria-hidden="true"></span>
+          <p class="subtitle" id="last-updated">Loading...</p>
+        </div>
+        <span class="service-total"><strong id="service-count">—</strong> connected</span>
       </div>
     </div>
     <div class="header-actions">
@@ -55,36 +58,60 @@ import ServiceManager from '../components/ServiceManager.astro';
 </Layout>
 
 <style>
+  :global(main) {
+    max-width: 1180px;
+    padding-top: 26px;
+  }
   .page-header {
     position: relative;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 24px;
-    margin-bottom: 28px;
-    padding: 4px 0 22px;
-    border-bottom: 1px solid var(--border);
+    align-items: flex-end;
+    gap: 32px;
+    margin-bottom: 34px;
+    padding: 24px 28px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 94% 8%, color-mix(in srgb, #25e3a1 16%, transparent), transparent 32%),
+      radial-gradient(circle at 70% 110%, color-mix(in srgb, #5575ff 15%, transparent), transparent 42%),
+      linear-gradient(135deg, color-mix(in srgb, var(--surface) 95%, #5575ff 5%), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--border) 72%, #2bd7ff 28%);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
   }
   .page-header::after {
     position: absolute;
-    right: 0;
-    bottom: -1px;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(90deg, var(--gemini), color-mix(in srgb, var(--copilot) 65%, transparent), transparent 68%);
+    right: -54px;
+    bottom: -70px;
+    width: 270px;
+    height: 180px;
+    background: linear-gradient(135deg, transparent, color-mix(in srgb, #2bd7ff 8%, transparent));
+    border: 1px solid color-mix(in srgb, #2bd7ff 14%, transparent);
+    border-radius: 50%;
     content: '';
-    opacity: 0.38;
     pointer-events: none;
   }
   .page-heading {
+    position: relative;
+    z-index: 1;
     min-width: 0;
   }
-  h1 {
-    margin: 0 0 8px;
-    font-size: clamp(30px, 4vw, 36px);
-    font-weight: 800;
-    letter-spacing: -1px;
-    line-height: 1.08;
+  .page-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+  }
+  .page-kicker span {
+    width: 18px;
+    height: 3px;
+    background: linear-gradient(90deg, #5575ff, #2bd7ff, #49ffa8);
+    border-radius: 999px;
   }
   .subtitle {
     margin: 0;
@@ -96,10 +123,25 @@ import ServiceManager from '../components/ServiceManager.astro';
     align-items: center;
     gap: 8px;
     min-height: 25px;
-    padding: 3px 10px;
-    background: color-mix(in srgb, var(--surface) 74%, transparent);
-    border: 1px solid var(--border);
+    padding: 4px 11px;
+    background: color-mix(in srgb, var(--surface-2) 68%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     border-radius: 999px;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .service-total {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .service-total strong {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 750;
   }
   .update-dot {
     width: 7px;
@@ -126,15 +168,32 @@ import ServiceManager from '../components/ServiceManager.astro';
     50% { opacity: 0.35; }
   }
   .header-actions {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 9px;
+    flex: 0 0 auto;
   }
   .dashboard-action {
-    min-height: 40px;
+    min-height: 42px;
     gap: 7px;
-    padding-right: 17px;
-    padding-left: 14px;
+    padding-right: 18px;
+    padding-left: 16px;
+    background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+    box-shadow: none;
+  }
+  .dashboard-action.btn-primary {
+    color: #031e2b;
+    background: linear-gradient(105deg, #2bd7ff, #49ffa8);
+    border-color: transparent;
+    box-shadow: 0 8px 24px -12px color-mix(in srgb, #2bd7ff 75%, transparent);
+  }
+  .dashboard-action.btn-primary:hover,
+  .dashboard-action.btn-primary:focus-visible {
+    color: #031e2b;
+    background: linear-gradient(105deg, #5ee1ff, #6bffba);
+    border-color: transparent;
   }
   .dashboard-action svg {
     width: 15px;
@@ -147,14 +206,15 @@ import ServiceManager from '../components/ServiceManager.astro';
 
   :global(.welcome-empty-container) {
     background:
-      radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--gemini) 9%, transparent), transparent 42%),
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, #2bd7ff 12%, transparent), transparent 42%),
+      radial-gradient(circle at 85% 80%, color-mix(in srgb, #49ffa8 7%, transparent), transparent 36%),
       var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 44px 32px;
+    border: 1px solid color-mix(in srgb, var(--border) 75%, #2bd7ff 25%);
+    border-radius: 26px;
+    padding: 52px 36px;
     text-align: center;
     box-shadow: var(--shadow);
-    max-width: 780px;
+    max-width: 840px;
     margin: 12px auto 0;
   }
   :global(.welcome-hero-badge) {
@@ -165,7 +225,9 @@ import ServiceManager from '../components/ServiceManager.astro';
     margin-bottom: 20px;
   }
   :global(.welcome-logo) {
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+    width: 40px;
+    height: 46px;
+    filter: drop-shadow(0 8px 18px color-mix(in srgb, #2bd7ff 25%, transparent));
   }
   :global(.provider-pill-stack) {
     display: flex;
@@ -173,8 +235,8 @@ import ServiceManager from '../components/ServiceManager.astro';
     justify-content: center;
   }
   :global(.provider-pill) {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
@@ -184,9 +246,9 @@ import ServiceManager from '../components/ServiceManager.astro';
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   }
   :global(.welcome-title) {
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
+    font-size: clamp(25px, 4vw, 32px);
+    font-weight: 760;
+    letter-spacing: -1px;
     margin: 0 0 10px;
     color: var(--text);
   }
@@ -205,10 +267,10 @@ import ServiceManager from '../components/ServiceManager.astro';
     text-align: left;
   }
   :global(.feature-card) {
-    background: var(--surface-2);
+    background: color-mix(in srgb, var(--surface-2) 82%, transparent);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 18px 16px;
+    border-radius: 15px;
+    padding: 20px 18px;
   }
   :global(.feature-icon) {
     width: 34px;
@@ -242,6 +304,18 @@ import ServiceManager from '../components/ServiceManager.astro';
     display: flex;
     justify-content: center;
   }
+  :global(.welcome-actions .btn-primary) {
+    color: #031e2b;
+    background: linear-gradient(105deg, #2bd7ff, #49ffa8);
+    border-color: transparent;
+    box-shadow: 0 10px 28px -14px color-mix(in srgb, #2bd7ff 78%, transparent);
+  }
+  :global(.welcome-actions .btn-primary:hover),
+  :global(.welcome-actions .btn-primary:focus-visible) {
+    color: #031e2b;
+    background: linear-gradient(105deg, #5ee1ff, #6bffba);
+    border-color: transparent;
+  }
   :global(.btn-lg) {
     padding: 12px 28px;
     font-size: 14.5px;
@@ -258,8 +332,8 @@ import ServiceManager from '../components/ServiceManager.astro';
      per-category grids), so it must stay :global() to match those too. */
   :global(.grid) {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 18px;
   }
   :global(.category-section) {
     margin-bottom: 38px;
@@ -271,19 +345,19 @@ import ServiceManager from '../components/ServiceManager.astro';
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
   :global(.category-heading h2) {
     margin: 0;
     color: var(--text);
-    font-size: 14px;
-    font-weight: 750;
-    letter-spacing: -0.1px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.25px;
   }
   :global(.category-count) {
     padding: 2px 8px;
     color: var(--text-muted);
-    background: var(--surface-2);
+    background: color-mix(in srgb, var(--surface-2) 74%, transparent);
     border: 1px solid var(--border);
     border-radius: 999px;
     font-size: 10.5px;
@@ -320,13 +394,18 @@ import ServiceManager from '../components/ServiceManager.astro';
   }
 
   :global(.card) {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    background:
+      linear-gradient(145deg, color-mix(in srgb, var(--surface) 96%, white 4%), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
+    border-radius: 19px;
     overflow: hidden;
-    box-shadow: var(--shadow);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 18px 40px -30px rgba(0, 0, 0, 0.75);
     position: relative;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.15s ease;
+  }
+  :global(.card:hover) {
+    border-color: color-mix(in srgb, var(--border) 62%, #2bd7ff 38%);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 22px 46px -30px rgba(0, 0, 0, 0.82);
   }
   :global(.card.dragging) {
     opacity: 0.4;
@@ -339,15 +418,16 @@ import ServiceManager from '../components/ServiceManager.astro';
 
   :global(.accent-bar) {
     position: absolute;
-    left: 0;
-    top: 16px;
-    bottom: 16px;
-    width: 3px;
-    border-radius: 3px;
+    left: 20px;
+    right: 20px;
+    top: 0;
+    width: auto;
+    height: 3px;
+    border-radius: 0 0 999px 999px;
     background: var(--border);
     z-index: 1;
   }
-  :global(.accent-bar.ok)     { background: var(--green); }
+  :global(.accent-bar.ok)     { background: linear-gradient(90deg, #5575ff, #2bd7ff 50%, #49ffa8); }
   :global(.accent-bar.warn)   { background: var(--yellow); }
   :global(.accent-bar.orange) { background: var(--orange); }
   :global(.accent-bar.error)  { background: var(--red); }
@@ -357,9 +437,9 @@ import ServiceManager from '../components/ServiceManager.astro';
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 20px 14px 24px;
+    padding: 22px 20px 15px;
   }
-  :global(.service-info) { display: flex; align-items: center; gap: 10px; }
+  :global(.service-info) { display: flex; align-items: center; gap: 11px; min-width: 0; }
   :global(.drag-handle) {
     display: none;
     cursor: grab;
@@ -400,15 +480,16 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.card-controls) { display: flex; align-items: center; gap: 8px; }
 
   :global(.icon) {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    border-radius: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  :global(.icon img) { width: 18px; height: 18px; object-fit: contain; }
+  :global(.icon img) { width: 20px; height: 20px; object-fit: contain; }
   :global(.icon .icon-light) { display: none; }
   :global(.icon .icon-dark)  { display: block; }
   :global(:root[data-theme="light"] .icon .icon-light) { display: block; }
@@ -423,31 +504,46 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.ollama_cloud-bg) { background: color-mix(in srgb, var(--ollama_cloud) 18%, var(--surface)); }
   :global(.custom-bg)   { background: color-mix(in srgb, var(--custom) 18%, var(--surface)); }
 
-  :global(.service-name) { font-weight: 700; font-size: 16px; }
+  :global(.service-name) {
+    overflow: hidden;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   :global(.badge) {
-    font-size: 12px;
-    padding: 4px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    padding: 5px 9px;
     border-radius: 999px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.1px;
   }
   :global(.ok)    { background: color-mix(in srgb, var(--green) 18%, var(--surface)); color: var(--green); }
   :global(.error) { background: color-mix(in srgb, var(--red) 18%, var(--surface)); color: var(--red); }
   :global(.none)  { background: var(--surface-2); color: var(--text-muted); }
   :global(.stale) { background: color-mix(in srgb, var(--yellow) 18%, var(--surface)); color: var(--yellow); }
 
-  :global(.card-body) { padding: 4px 20px 20px 24px; min-height: 110px; }
+  :global(.card-body) { padding: 2px 20px 21px; min-height: 110px; }
 
   /* Hero ring block */
   :global(.hero) {
     display: flex;
     align-items: center;
     gap: 20px;
-    padding: 6px 0 16px;
+    margin: 8px 0 12px;
+    padding: 16px;
+    background: color-mix(in srgb, var(--surface-2) 64%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    border-radius: 15px;
   }
-  :global(.ring-wrap) { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+  :global(.ring-wrap) { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
   :global(.ring) { width: 100%; height: 100%; transform: rotate(-90deg); }
-  :global(.ring-track) { fill: none; stroke: var(--surface-2); stroke-width: 5; }
+  :global(.ring-track) { fill: none; stroke: color-mix(in srgb, var(--border) 68%, transparent); stroke-width: 5; }
   :global(.ring-fill) { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
   :global(.ring-fill.bar-low)    { stroke: var(--green); }
   :global(.ring-fill.bar-mid)    { stroke: var(--yellow); }
@@ -461,11 +557,11 @@ import ServiceManager from '../components/ServiceManager.astro';
     align-items: center;
     justify-content: center;
   }
-  :global(.ring-pct) { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  :global(.ring-pct) { font-size: 25px; font-weight: 720; letter-spacing: -0.8px; }
   :global(.ring-pct-sign) { font-size: 15px; font-weight: 600; color: var(--text-muted); }
 
   :global(.hero-meta) { flex: 1; min-width: 0; }
-  :global(.hero-label) { font-size: 13.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
+  :global(.hero-label) { font-size: 13px; font-weight: 650; color: var(--text); margin-bottom: 8px; }
   :global(.hero-resets-cap) { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); }
   :global(.hero-resets-val) { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin-top: 1px; }
   :global(.hero-resets-date) { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
@@ -504,8 +600,8 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.bar-wrap) {
     position: relative;
     width: 100%;
-    height: 8px;
-    background: var(--surface-2);
+    height: 7px;
+    background: color-mix(in srgb, var(--surface-2) 78%, var(--border));
     border-radius: 999px;
   }
   :global(.bar-fill) {
@@ -531,22 +627,95 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.notice) { color: var(--text-muted); font-size: 13px; line-height: 1.7; padding: 6px 0; }
   :global(.notice a) { color: var(--gemini); text-decoration: none; }
   :global(.notice a:hover) { text-decoration: underline; }
-  :global(.err-msg) { color: var(--red); font-size: 13px; padding: 6px 0; }
-  /* Built at runtime via innerHTML (card body strings), so it never gets
-     Astro's scoped-style attribute -- must stay :global() to match. */
+  /* Built at runtime via innerHTML (card body strings), so these must stay
+     :global() to receive the dashboard's scoped styles. */
+  :global(.service-alert) {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 11px;
+    margin: 5px 0 2px;
+    padding: 14px;
+    border: 1px solid;
+    border-radius: 14px;
+  }
+  :global(.service-alert-error) {
+    background: color-mix(in srgb, var(--red) 7%, var(--surface-2));
+    border-color: color-mix(in srgb, var(--red) 24%, var(--border));
+  }
+  :global(.service-alert-warning) {
+    background: color-mix(in srgb, var(--yellow) 7%, var(--surface-2));
+    border-color: color-mix(in srgb, var(--yellow) 22%, var(--border));
+  }
+  :global(.service-alert-icon) {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+  }
+  :global(.service-alert-error .service-alert-icon) {
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 13%, transparent);
+  }
+  :global(.service-alert-warning .service-alert-icon) {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 13%, transparent);
+  }
+  :global(.service-alert-icon svg) {
+    width: 16px;
+    height: 16px;
+  }
+  :global(.service-alert-copy) {
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  :global(.service-alert-title) {
+    margin-bottom: 3px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  :global(.service-alert-message) {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  :global(.service-alert-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+  }
   :global(.stale-curl-link) {
-    background: none;
-    border: none;
-    padding: 0;
-    margin-left: 6px;
-    color: var(--gemini);
-    font-size: inherit;
-    text-decoration: underline;
+    width: auto;
+    height: 30px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 68%, var(--text-muted) 32%);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: normal;
+    text-align: center;
+    vertical-align: middle;
+    text-decoration: none;
     cursor: pointer;
     font-family: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease;
   }
-  :global(.stale-curl-link:hover) { opacity: 0.8; }
-  :global(.stale-msg) { color: var(--yellow); font-size: 12px; padding: 6px 0 2px; }
+  :global(.stale-curl-link:hover) {
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--border) 45%, #2bd7ff 55%);
+  }
+  :global(.notice .stale-curl-link) { margin-left: 6px; }
 
   .empty-card {
     background: var(--surface);
@@ -563,7 +732,7 @@ import ServiceManager from '../components/ServiceManager.astro';
     justify-content: center;
     gap: 14px;
     background:
-      radial-gradient(circle at center, color-mix(in srgb, var(--gemini) 7%, transparent), transparent 48%),
+      radial-gradient(circle at center, color-mix(in srgb, #2bd7ff 9%, transparent), transparent 48%),
       var(--surface);
   }
   .loading-orbit {
@@ -582,11 +751,15 @@ import ServiceManager from '../components/ServiceManager.astro';
   }
 
   @media (max-width: 620px) {
+    :global(main) {
+      padding-top: 18px;
+    }
     .page-header {
       flex-direction: column;
       align-items: stretch;
-      gap: 18px;
-      padding-bottom: 18px;
+      gap: 24px;
+      padding: 24px 20px 20px;
+      border-radius: 20px;
     }
     .header-actions {
       width: 100%;
@@ -597,6 +770,12 @@ import ServiceManager from '../components/ServiceManager.astro';
     }
     :global(.category-heading) {
       gap: 8px;
+    }
+    :global(.grid) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    :global(.welcome-empty-container) {
+      padding: 38px 20px;
     }
   }
   :global(.skeleton-body) {
@@ -1061,7 +1240,27 @@ import ServiceManager from '../components/ServiceManager.astro';
 
   function curlLinkHtml(svcId: number, type: string): string {
     if (!CURL_IMPORT_CONFIG[type]) return '';
-    return ` <button type="button" class="stale-curl-link" data-svc-id="${svcId}">Paste new cURL</button>`;
+    return `<button type="button" class="stale-curl-link" data-svc-id="${svcId}">Paste new cURL</button>`;
+  }
+
+  function serviceAlertHtml(
+    kind: 'error' | 'warning',
+    title: string,
+    message: any,
+    actionHtml: string = ''
+  ): string {
+    const icon = kind === 'error'
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.7 2.4 17.5A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.5L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+    return `
+      <div class="service-alert service-alert-${kind}" role="${kind === 'error' ? 'alert' : 'status'}">
+        <span class="service-alert-icon">${icon}</span>
+        <div class="service-alert-copy">
+          <div class="service-alert-title">${escapeHtml(title)}</div>
+          <p class="service-alert-message">${escapeHtml(message)}</p>
+          ${actionHtml ? `<div class="service-alert-actions">${actionHtml}</div>` : ''}
+        </div>
+      </div>`;
   }
 
   function getServiceIconHtml(type: string, svcId?: number | string): string {
@@ -1171,7 +1370,12 @@ import ServiceManager from '../components/ServiceManager.astro';
     if (result.status === 'error') {
       setBadge(badge, 'Error', 'error');
       setAccent(svcId, 'error');
-      body.innerHTML = `<p class="err-msg">${result.error}${curlLinkHtml(svcId, type)}</p>`;
+      body.innerHTML = serviceAlertHtml(
+        'error',
+        'Couldn’t refresh this service',
+        result.error,
+        curlLinkHtml(svcId, type)
+      );
       return;
     }
 
@@ -1181,7 +1385,12 @@ import ServiceManager from '../components/ServiceManager.astro';
       setBadge(badge, 'Connected', 'ok');
     }
     const staleWarning = (result.cached && result.stale_error)
-      ? `<p class="stale-msg">⚠ Showing cached data from ${fmtDate(result.fetched_at)} — live refresh failed: ${result.stale_error}${curlLinkHtml(svcId, type)}</p>`
+      ? serviceAlertHtml(
+          'warning',
+          'Showing cached data',
+          `Last updated ${fmtDate(result.fetched_at)}. The live refresh failed: ${result.stale_error}`,
+          curlLinkHtml(svcId, type)
+        )
       : '';
     const d = result.data ?? {};
 
@@ -1328,7 +1537,7 @@ import ServiceManager from '../components/ServiceManager.astro';
       }
       if (d.period_start) html += `<hr class="divider">` + row('Since', fmtDate(d.period_start));
       const sessionWarning = d.session_error
-        ? `<p class="stale-msg">⚠ ${d.session_error}</p>`
+        ? serviceAlertHtml('warning', 'Some account data is unavailable', d.session_error)
         : '';
       body.innerHTML = staleWarning + sessionWarning + html;
       setAccent(svcId, 'ok');
@@ -1683,7 +1892,7 @@ import ServiceManager from '../components/ServiceManager.astro';
           </div>
         </div>
         <div class="card-body">
-          <div class="err-msg">${msg}</div>
+          ${serviceAlertHtml('error', 'Couldn’t load usage', msg)}
         </div>`;
     }
   }
@@ -1723,11 +1932,14 @@ import ServiceManager from '../components/ServiceManager.astro';
       allCategories = catRes.ok ? await catRes.json() : [];
       const services = await res.json();
       allServices = Array.isArray(services) ? services : [];
+      const serviceCountEl = document.getElementById('service-count');
+      if (serviceCountEl) serviceCountEl.textContent = String(allServices.length);
       if (!Array.isArray(services) || services.length === 0) {
         if (headerEl) headerEl.style.display = 'flex';
         grid.innerHTML = `
           <div class="welcome-empty-container" style="grid-column: 1 / -1;">
             <div class="welcome-hero-badge">
+              <img class="welcome-logo" src="/favicon.svg" alt="" width="40" height="46" />
               <div class="provider-pill-stack">
                 <span class="provider-pill claude-bg"><img src="/icons/claude.svg" alt="Claude" width="16" height="16" /></span>
                 <span class="provider-pill gemini-bg"><img src="/icons/gemini.svg" alt="Gemini" width="16" height="16" /></span>
@@ -1738,9 +1950,9 @@ import ServiceManager from '../components/ServiceManager.astro';
               </div>
             </div>
 
-            <h2 class="welcome-title">Track Your AI Usage & Quotas</h2>
+            <h2 class="welcome-title">All your AI capacity, <span class="brand-accent">one clear view.</span></h2>
             <p class="welcome-description">
-              Connect your Claude, Gemini, DeepSeek, Copilot, OpenAI, or ChatGPT accounts to monitor active rate limits, weekly quotas, and credit balances in real time.
+              Connect the services you use to see active limits, weekly quotas, reset windows, spend, and credit balances together.
             </p>
 
             <div class="feature-highlights">
@@ -1770,7 +1982,7 @@ import ServiceManager from '../components/ServiceManager.astro';
             </div>
 
             <div class="welcome-actions">
-              <button type="button" class="btn btn-primary btn-lg open-service-manager-btn">+ Connect Your First Service</button>
+              <button type="button" class="btn btn-primary btn-lg open-service-manager-btn">Connect your first service</button>
             </div>
           </div>`;
         setUpdateStatus('No active services', 'idle');

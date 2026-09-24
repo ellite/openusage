@@ -301,7 +301,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       width: 100%;
-      max-width: 520px;
+      max-width: 560px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -321,15 +321,21 @@
       border-bottom: 1px solid var(--border);
     }
     .modal-header h3 {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 700;
       margin: 0;
     }
     .icon-btn-close {
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 24px;
+      padding: 0;
+      font-size: 28px;
       cursor: pointer;
       line-height: 1;
     }
@@ -339,11 +345,11 @@
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 20px;
     }
     .form-group label {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-dim);
     }
@@ -351,9 +357,10 @@
       background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 14px;
+      min-height: 48px;
+      padding: 12px 14px;
       border-radius: var(--radius-sm);
-      font-size: 14px;
+      font-size: 16px;
       outline: none;
       width: 100%;
       box-sizing: border-box;
@@ -365,9 +372,9 @@
       -moz-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 12px center;
-      background-size: 14px;
-      padding-right: 36px;
+      background-position: right 14px center;
+      background-size: 16px;
+      padding-right: 42px;
     }
     select.form-select option {
       background: var(--surface-2);
@@ -383,16 +390,18 @@
       width: 100%;
     }
     .password-input-wrap input {
-      padding-right: 40px;
+      padding-right: 50px;
     }
     .toggle-pw-btn {
       position: absolute;
-      right: 8px;
+      right: 2px;
+      width: 44px;
+      height: 44px;
       background: transparent;
       border: none;
       color: var(--text-muted);
       cursor: pointer;
-      padding: 6px;
+      padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -407,7 +416,7 @@
       height: 18px;
     }
     textarea {
-      height: 70px;
+      height: 104px;
       resize: vertical;
     }
     .modal-divider {
@@ -417,8 +426,8 @@
     }
     .form-row {
       display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 14px;
+      margin-bottom: 20px;
     }
     .form-row .form-group {
       flex: 1;
@@ -435,9 +444,28 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-height: 48px;
+    }
+    .provider-picker .svc-icon {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 42px;
+      border-radius: 50%;
+    }
+    .provider-picker .svc-icon img {
+      width: 22px;
+      height: 22px;
+      display: block;
+      object-fit: contain;
+    }
+    .provider-picker .svc-icon.claude-bg img {
+      transform: translateY(-1px);
     }
     .provider-picker-name {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 700;
       flex: 1;
     }
@@ -467,6 +495,7 @@
       gap: 10px;
     }
     :global(.template-tile) {
+      min-height: 102px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -504,9 +533,10 @@
       background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 14px;
+      min-height: 48px;
+      padding: 12px 14px;
       border-radius: var(--radius-sm);
-      font-size: 14px;
+      font-size: 16px;
       outline: none;
       box-sizing: border-box;
       font-family: inherit;
@@ -516,9 +546,10 @@
       background: var(--surface-2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 26px 10px 8px;
+      min-height: 48px;
+      padding: 12px 30px 12px 10px;
       border-radius: var(--radius-sm);
-      font-size: 13px;
+      font-size: 16px;
       outline: none;
       box-sizing: border-box;
       font-family: inherit;
@@ -553,6 +584,7 @@
     :global(.custom-field-row .btn-danger),
     :global(.custom-field-row .cf-move) {
       flex-shrink: 0;
+      min-height: 44px;
       padding: 8px 10px;
     }
     :global(.custom-field-row .cf-move:disabled) {
@@ -659,18 +691,19 @@
     }
     :global(.response-field-row .rf-add-btn) {
       flex-shrink: 0;
-      padding: 4px 10px;
-      font-size: 11.5px;
+      min-height: 40px;
+      padding: 8px 12px;
+      font-size: 12px;
     }
     .curl-box, .device-flow-box {
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 12px;
+      padding: 14px;
       margin-bottom: 16px;
     }
     .curl-box label, .device-flow-box label {
-      font-size: 12.5px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-muted);
       display: block;
@@ -754,6 +787,16 @@
       gap: 10px;
       margin-top: 24px;
     }
+    :global(#service-modal .btn),
+    :global(#template-modal .btn) {
+      min-height: 44px;
+      padding: 10px 16px;
+      font-size: 14px;
+    }
+    .modal-footer .btn {
+      min-height: 48px;
+      font-size: 15px;
+    }
     .code-badge {
       background: var(--surface);
       padding: 4px 8px;
@@ -772,6 +815,147 @@
       font-size: 13.5px;
       color: var(--text);
       margin: 0;
+    }
+
+    @media (max-width: 620px) {
+      .modal-backdrop {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .modal {
+        max-width: none;
+        max-height: 96dvh;
+        border-right: none;
+        border-bottom: none;
+        border-left: none;
+        border-radius: 22px 22px 0 0;
+      }
+      .modal-header {
+        padding: 16px 18px;
+      }
+      .modal-header h3 {
+        font-size: 20px;
+      }
+      .icon-btn-close {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: -8px -8px -8px 0;
+        padding: 0;
+        font-size: 28px;
+      }
+      .modal-body {
+        padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+      }
+      .form-group {
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .form-group label,
+      .curl-box label,
+      .device-flow-box label {
+        font-size: 14px;
+      }
+      .form-group input,
+      .form-select,
+      textarea {
+        min-height: 48px;
+        padding: 12px 14px;
+        font-size: 16px;
+      }
+      select.form-select {
+        background-position: right 14px center;
+        background-size: 16px;
+        padding-right: 42px;
+      }
+      textarea {
+        height: 104px;
+      }
+      .form-row {
+        flex-direction: column;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .provider-picker {
+        min-height: 48px;
+        gap: 12px;
+      }
+      .provider-picker .svc-icon {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+      }
+      .provider-picker .svc-icon img {
+        width: 22px;
+        height: 22px;
+      }
+      .provider-picker-name {
+        font-size: 15px;
+      }
+      .toggle-pw-btn {
+        right: 2px;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+      }
+      .password-input-wrap input {
+        padding-right: 50px;
+      }
+      :global(#service-modal .btn),
+      :global(#template-modal .btn) {
+        min-height: 44px;
+        padding: 10px 16px;
+        font-size: 14px;
+      }
+      .curl-box,
+      .device-flow-box {
+        padding: 14px;
+      }
+      .curl-box .btn,
+      .device-flow-box .btn {
+        width: 100%;
+      }
+      .modal-footer {
+        gap: 10px;
+        margin-top: 26px;
+      }
+      .modal-footer .btn {
+        min-height: 48px;
+        flex: 1;
+        font-size: 15px;
+      }
+      :global(.template-grid) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      :global(.template-tile) {
+        min-height: 102px;
+        padding: 14px 8px;
+        font-size: 13px;
+      }
+      :global(.custom-field-row) {
+        gap: 10px;
+        padding: 12px;
+      }
+      :global(.custom-field-row input),
+      :global(.custom-field-row select) {
+        min-height: 48px;
+        font-size: 16px;
+      }
+      :global(.custom-field-row .cf-actions > *) {
+        min-height: 44px;
+      }
+      :global(.response-field-row) {
+        min-height: 48px;
+        padding: 8px 10px;
+      }
+      :global(.response-field-row .rf-add-btn) {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
     }
 
 </style>
