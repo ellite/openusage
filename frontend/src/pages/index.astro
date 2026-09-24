@@ -428,9 +428,9 @@ import ServiceManager from '../components/ServiceManager.astro';
     z-index: 1;
   }
   :global(.accent-bar.ok)     { background: linear-gradient(90deg, #5575ff, #2bd7ff 50%, #49ffa8); }
-  :global(.accent-bar.warn)   { background: var(--yellow); }
-  :global(.accent-bar.orange) { background: var(--orange); }
-  :global(.accent-bar.error)  { background: var(--red); }
+  :global(.accent-bar.warn)   { background: linear-gradient(90deg, #5575ff, var(--yellow)); }
+  :global(.accent-bar.orange) { background: linear-gradient(90deg, #5575ff, var(--orange)); }
+  :global(.accent-bar.error)  { background: linear-gradient(90deg, #5575ff, var(--red)); }
   :global(.accent-bar.none)   { background: var(--border); }
 
   :global(.card-header) {
