@@ -447,6 +447,65 @@ async def delete_user_service(service_id: int, user_id: int):
         await db.commit()
 
 
+async def delete_all_user_services(user_id: int) -> int:
+    """Delete every configured service owned by a user and its dependent data.
+
+    Foreign-key cascades are not assumed here because SQLite requires
+    PRAGMA foreign_keys=ON for every connection. Keeping the cleanup explicit
+    also makes the deletion behavior consistent for older installations.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM user_services WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            deleted_count = (await cursor.fetchone())[0]
+        await db.execute(
+            """
+            DELETE FROM service_usage_history
+            WHERE user_service_id IN (SELECT id FROM user_services WHERE user_id = ?)
+            """,
+            (user_id,),
+        )
+        await db.execute(
+            """
+            DELETE FROM service_notify_state
+            WHERE user_service_id IN (SELECT id FROM user_services WHERE user_id = ?)
+            """,
+            (user_id,),
+        )
+        await db.execute("DELETE FROM user_services WHERE user_id = ?", (user_id,))
+        await db.commit()
+        return deleted_count
+
+
+async def delete_user_account(user_id: int) -> bool:
+    """Permanently delete a user and all data that belongs to the account."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            DELETE FROM service_usage_history
+            WHERE user_service_id IN (SELECT id FROM user_services WHERE user_id = ?)
+            """,
+            (user_id,),
+        )
+        await db.execute(
+            """
+            DELETE FROM service_notify_state
+            WHERE user_service_id IN (SELECT id FROM user_services WHERE user_id = ?)
+            """,
+            (user_id,),
+        )
+        await db.execute("DELETE FROM user_services WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM categories WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM push_subscriptions WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM two_factor_auth WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        cursor = await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
 async def get_service_notify_armed(user_service_id: int, threshold_type: str) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
@@ -510,14 +569,19 @@ async def get_push_subscriptions(user_id: int):
             return [dict(r) for r in rows]
 
 
-async def save_service_usage(user_service_id: int, data: dict):
+async def save_service_usage(user_service_id: int, data: dict) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "INSERT INTO service_usage_history (user_service_id, data, fetched_at) VALUES (?, ?, ?)",
-            (user_service_id, json.dumps(data), now),
+        cursor = await db.execute(
+            """
+            INSERT INTO service_usage_history (user_service_id, data, fetched_at)
+            SELECT ?, ?, ?
+            WHERE EXISTS (SELECT 1 FROM user_services WHERE id = ?)
+            """,
+            (user_service_id, json.dumps(data), now, user_service_id),
         )
         await db.commit()
+        return cursor.rowcount > 0
 
 
 async def get_latest_service_usage(user_service_id: int):

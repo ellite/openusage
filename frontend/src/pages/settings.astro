@@ -126,8 +126,106 @@ import Layout from '../layouts/Layout.astro';
           </form>
         </div>
       </section>
+
+      <section class="settings-panel settings-panel-wide data-management-panel">
+        <div class="panel-header">
+          <div class="panel-icon panel-icon-data" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+          </div>
+          <div>
+            <h2>Service data</h2>
+            <p>Manage the providers and APIs connected to your dashboard.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="destructive-action-row">
+            <div class="destructive-copy">
+              <h3>Delete all services and APIs</h3>
+              <p>Removes every provider configuration, stored credential, usage record, and notification threshold. Your categories and account remain.</p>
+            </div>
+            <button type="button" id="delete-all-services-btn" class="btn btn-danger">Delete all services</button>
+          </div>
+          <div id="delete-services-success" class="auth-success" style="display: none;"></div>
+        </div>
+      </section>
+
+      <section class="settings-panel settings-panel-wide danger-zone">
+        <div class="panel-header">
+          <div class="panel-icon panel-icon-danger" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.7 2.4 17.5A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.5L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <div>
+            <h2>Danger zone</h2>
+            <p>Permanent actions that cannot be undone.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="destructive-action-row">
+            <div class="destructive-copy">
+              <h3>Delete account</h3>
+              <p>Permanently removes your account, sessions, connected services, categories, usage history, recovery data, and push subscriptions.</p>
+            </div>
+            <button type="button" id="delete-account-btn" class="btn btn-danger">Delete account</button>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
+
+  <div id="delete-services-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal destructive-modal">
+      <div class="modal-header">
+        <h3>Delete all services?</h3>
+        <button type="button" id="delete-services-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="destructive-warning">This permanently removes every configured service and API, including stored credentials and usage history. It cannot be undone.</p>
+        <form id="delete-services-form">
+          <div class="form-group">
+            <label for="delete-services-confirmation">Type <strong>DELETE ALL</strong> to confirm</label>
+            <input type="text" id="delete-services-confirmation" autocomplete="off" autocapitalize="characters" required />
+          </div>
+          <div id="delete-services-error" class="auth-error" style="display: none;"></div>
+          <div class="modal-footer">
+            <button type="button" id="delete-services-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="delete-services-submit-btn" class="btn btn-danger">Delete all services</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-account-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal destructive-modal">
+      <div class="modal-header">
+        <h3>Delete your account?</h3>
+        <button type="button" id="delete-account-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="destructive-warning">This permanently deletes your OpenUsage account and everything associated with it. There is no recovery path.</p>
+        <form id="delete-account-form">
+          <div class="form-group">
+            <label for="delete-account-password">Current password</label>
+            <input type="password" id="delete-account-password" autocomplete="current-password" required />
+          </div>
+          <div class="form-group" id="delete-account-code-group" style="display: none;">
+            <label for="delete-account-code">Two-factor or recovery code</label>
+            <input type="text" id="delete-account-code" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" />
+          </div>
+          <div class="form-group">
+            <label for="delete-account-confirmation">Type <strong id="delete-account-username">your username</strong> to confirm</label>
+            <input type="text" id="delete-account-confirmation" autocomplete="off" autocapitalize="none" spellcheck="false" required />
+          </div>
+          <div id="delete-account-error" class="auth-error" style="display: none;"></div>
+          <div class="modal-footer">
+            <button type="button" id="delete-account-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="delete-account-submit-btn" class="btn btn-danger">Permanently delete account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Two-factor: step 1 (password) / step 2 (QR + confirm code) -->
   <div id="twofactor-setup-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
@@ -1035,6 +1133,14 @@ import Layout from '../layouts/Layout.astro';
       color: var(--copilot);
       background: color-mix(in srgb, var(--copilot) 12%, var(--surface));
     }
+    .panel-icon-data {
+      color: var(--deepseek);
+      background: color-mix(in srgb, var(--deepseek) 11%, var(--surface));
+    }
+    .panel-icon-danger {
+      color: var(--red);
+      background: color-mix(in srgb, var(--red) 10%, var(--surface));
+    }
     .panel-body {
       padding: 22px;
     }
@@ -1141,6 +1247,62 @@ import Layout from '../layouts/Layout.astro';
       font-size: 13px;
       line-height: 1.55;
     }
+    .destructive-action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .destructive-copy {
+      min-width: 0;
+    }
+    .destructive-copy h3 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .destructive-copy p,
+    .destructive-warning {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+    .destructive-action-row .btn {
+      min-height: 42px;
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    .data-management-panel .auth-success {
+      margin-top: 16px;
+    }
+    .danger-zone {
+      border-color: color-mix(in srgb, var(--red) 34%, var(--border));
+      background:
+        linear-gradient(145deg, color-mix(in srgb, var(--red) 5%, transparent), transparent 46%),
+        var(--surface);
+    }
+    .danger-zone .panel-header {
+      border-bottom-color: color-mix(in srgb, var(--red) 20%, var(--border));
+    }
+    .destructive-modal {
+      max-width: 560px;
+    }
+    .destructive-warning {
+      margin-bottom: 20px;
+      padding: 13px 14px;
+      color: color-mix(in srgb, var(--red) 68%, var(--text));
+      background: color-mix(in srgb, var(--red) 7%, var(--surface-2));
+      border: 1px solid color-mix(in srgb, var(--red) 22%, var(--border));
+      border-radius: var(--radius-sm);
+    }
+    .destructive-modal label strong {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .destructive-modal .modal-footer .btn {
+      min-height: 44px;
+    }
     .twofactor-actions {
       flex-wrap: wrap;
       margin-top: 16px;
@@ -1221,6 +1383,21 @@ import Layout from '../layouts/Layout.astro';
       .twofactor-actions .btn {
         flex: 1 1 auto;
       }
+      .destructive-action-row {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .destructive-action-row .btn {
+        width: 100%;
+      }
+      .destructive-modal .modal-footer {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .destructive-modal .modal-footer .btn {
+        width: 100%;
+      }
       .recovery-codes-list {
         grid-template-columns: 1fr;
       }
@@ -1229,6 +1406,8 @@ import Layout from '../layouts/Layout.astro';
 
   <script>
     let allCategories: any[] = [];
+    let currentAccountUser: any = null;
+    let accountHasTwoFactor = false;
 
     function getAuthToken() {
       const token = localStorage.getItem('auth_token');
@@ -1254,7 +1433,10 @@ import Layout from '../layouts/Layout.astro';
         const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error('Failed to load account');
         const data = await res.json();
+        currentAccountUser = data.user;
         input.value = data.user.email || '';
+        const usernameEl = document.getElementById('delete-account-username');
+        if (usernameEl) usernameEl.textContent = data.user.username;
       } catch (e) {
         console.error('Failed to load account', e);
       }
@@ -1340,6 +1522,7 @@ import Layout from '../layouts/Layout.astro';
         const res = await fetch('/api/auth/2fa', { headers: { 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error('Failed to load two-factor status');
         const data = await res.json();
+        accountHasTwoFactor = Boolean(data.enabled);
         if (loadingEl) loadingEl.style.display = 'none';
         if (data.enabled) {
           if (enabledBlock) enabledBlock.style.display = 'block';
@@ -1629,6 +1812,164 @@ import Layout from '../layouts/Layout.astro';
       });
       input.value = '';
       await loadCategories();
+    });
+
+    // ── Destructive data and account actions ──
+    const deleteServicesModal = document.getElementById('delete-services-modal');
+    const deleteAccountModal = document.getElementById('delete-account-modal');
+
+    function closeDeleteServicesModal() {
+      deleteServicesModal?.style.setProperty('display', 'none');
+      (document.getElementById('delete-services-confirmation') as HTMLInputElement).value = '';
+      document.getElementById('delete-services-error')?.style.setProperty('display', 'none');
+    }
+
+    function closeDeleteAccountModal() {
+      deleteAccountModal?.style.setProperty('display', 'none');
+      (document.getElementById('delete-account-password') as HTMLInputElement).value = '';
+      (document.getElementById('delete-account-code') as HTMLInputElement).value = '';
+      (document.getElementById('delete-account-confirmation') as HTMLInputElement).value = '';
+      document.getElementById('delete-account-error')?.style.setProperty('display', 'none');
+    }
+
+    document.getElementById('delete-all-services-btn')?.addEventListener('click', () => {
+      document.getElementById('delete-services-success')?.style.setProperty('display', 'none');
+      deleteServicesModal?.style.setProperty('display', 'flex');
+      requestAnimationFrame(() => (document.getElementById('delete-services-confirmation') as HTMLInputElement)?.focus());
+    });
+    document.getElementById('delete-services-close-btn')?.addEventListener('click', closeDeleteServicesModal);
+    document.getElementById('delete-services-cancel-btn')?.addEventListener('click', closeDeleteServicesModal);
+    deleteServicesModal?.addEventListener('click', (event) => {
+      if (event.target === deleteServicesModal) closeDeleteServicesModal();
+    });
+
+    document.getElementById('delete-services-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const token = getAuthToken();
+      const input = document.getElementById('delete-services-confirmation') as HTMLInputElement;
+      const errorEl = document.getElementById('delete-services-error');
+      const submitBtn = document.getElementById('delete-services-submit-btn') as HTMLButtonElement;
+      if (!token || !input || !submitBtn) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (input.value.trim() !== 'DELETE ALL') {
+        if (errorEl) {
+          errorEl.textContent = 'Type “DELETE ALL” exactly to continue.';
+          errorEl.style.display = 'block';
+        }
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Deleting…';
+      try {
+        const response = await fetch('/api/user-services', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ confirmation: input.value.trim() }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || 'Could not delete services');
+
+        localStorage.removeItem('dash_order');
+        closeDeleteServicesModal();
+        const successEl = document.getElementById('delete-services-success');
+        if (successEl) {
+          const count = Number(data.deleted_count || 0);
+          successEl.textContent = count
+            ? (count === 1 ? '1 service and its stored data deleted.' : `${count} services and their stored data deleted.`)
+            : 'There were no connected services to delete.';
+          successEl.style.display = 'block';
+        }
+      } catch (error: any) {
+        if (errorEl) {
+          errorEl.textContent = error.message || 'Could not delete services';
+          errorEl.style.display = 'block';
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Delete all services';
+      }
+    });
+
+    document.getElementById('delete-account-btn')?.addEventListener('click', () => {
+      let username = currentAccountUser?.username;
+      if (!username) {
+        try { username = JSON.parse(localStorage.getItem('auth_user') || '{}').username; } catch {}
+      }
+      const usernameEl = document.getElementById('delete-account-username');
+      if (usernameEl) usernameEl.textContent = username || 'your username';
+      const codeGroup = document.getElementById('delete-account-code-group');
+      if (codeGroup) codeGroup.style.display = accountHasTwoFactor ? 'flex' : 'none';
+      const codeInput = document.getElementById('delete-account-code') as HTMLInputElement;
+      if (codeInput) codeInput.required = accountHasTwoFactor;
+      deleteAccountModal?.style.setProperty('display', 'flex');
+      requestAnimationFrame(() => (document.getElementById('delete-account-password') as HTMLInputElement)?.focus());
+    });
+    document.getElementById('delete-account-close-btn')?.addEventListener('click', closeDeleteAccountModal);
+    document.getElementById('delete-account-cancel-btn')?.addEventListener('click', closeDeleteAccountModal);
+    deleteAccountModal?.addEventListener('click', (event) => {
+      if (event.target === deleteAccountModal) closeDeleteAccountModal();
+    });
+
+    document.getElementById('delete-account-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const token = getAuthToken();
+      const passwordInput = document.getElementById('delete-account-password') as HTMLInputElement;
+      const codeInput = document.getElementById('delete-account-code') as HTMLInputElement;
+      const confirmationInput = document.getElementById('delete-account-confirmation') as HTMLInputElement;
+      const errorEl = document.getElementById('delete-account-error');
+      const submitBtn = document.getElementById('delete-account-submit-btn') as HTMLButtonElement;
+      const username = currentAccountUser?.username
+        || (() => { try { return JSON.parse(localStorage.getItem('auth_user') || '{}').username; } catch { return ''; } })();
+      if (!token || !passwordInput || !confirmationInput || !submitBtn) return;
+      if (errorEl) errorEl.style.display = 'none';
+      if (!username || confirmationInput.value.trim() !== username) {
+        if (errorEl) {
+          errorEl.textContent = 'Type your username exactly to continue.';
+          errorEl.style.display = 'block';
+        }
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Deleting account…';
+      try {
+        const response = await fetch('/api/auth/account', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            password: passwordInput.value,
+            confirmation: confirmationInput.value.trim(),
+            code: accountHasTwoFactor ? codeInput?.value.trim() : null,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || 'Could not delete account');
+
+        const subscription = await getExistingPushSubscription().catch(() => null);
+        if (subscription) await subscription.unsubscribe().catch(() => false);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('dash_order');
+        window.location.href = '/login';
+      } catch (error: any) {
+        if (errorEl) {
+          errorEl.textContent = error.message || 'Could not delete account';
+          errorEl.style.display = 'block';
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Permanently delete account';
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (deleteServicesModal instanceof HTMLElement && deleteServicesModal.style.display !== 'none') {
+        closeDeleteServicesModal();
+      }
+      if (deleteAccountModal instanceof HTMLElement && deleteAccountModal.style.display !== 'none') {
+        closeDeleteAccountModal();
+      }
     });
 
 

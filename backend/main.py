@@ -45,6 +45,8 @@ from db import (
     add_user_service,
     update_user_service,
     delete_user_service,
+    delete_all_user_services,
+    delete_user_account,
     save_service_usage,
     get_latest_service_usage,
     verify_password,
@@ -127,6 +129,12 @@ _last_fetch_attempt_at: dict[int, datetime] = {}
 # already-invalidated cookie and the session looks "expired" again. Routing
 # every caller through the same Task removes the race entirely.
 _inflight_fetches: dict[int, asyncio.Task] = {}
+
+
+def _clear_service_runtime_state(service_ids: list[int]) -> None:
+    for service_id in service_ids:
+        _last_fetch_error.pop(service_id, None)
+        _last_fetch_attempt_at.pop(service_id, None)
 
 
 def _get_or_start_live_fetch(user_service: dict) -> asyncio.Task:
@@ -219,7 +227,12 @@ async def _live_fetch_and_save(user_service: dict) -> dict:
 
         if result.get("status") == "ok":
             data = result.get("data", {})
-            await save_service_usage(svc_id, data)
+            saved = await save_service_usage(svc_id, data)
+            if not saved:
+                # The service was deleted while its provider request was in
+                # flight. Do not recreate orphaned history or send alerts.
+                _clear_service_runtime_state([svc_id])
+                return {"id": svc_id, "service_type": svc_type, "name": svc_name, "result": result}
             _last_fetch_error.pop(svc_id, None)
             try:
                 await _check_thresholds_and_notify(user_service, data)
@@ -558,6 +571,38 @@ async def update_password(req: UpdatePasswordRequest, user: dict = Depends(get_c
     return {"token": token, "user": _public_user(user)}
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str = Field(min_length=1)
+    confirmation: str
+    code: Optional[str] = None
+
+
+@app.delete("/api/auth/account")
+async def delete_account(req: DeleteAccountRequest, user: dict = Depends(get_current_user)):
+    if req.confirmation.strip() != user["username"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Type your username exactly to confirm account deletion",
+        )
+
+    row = await db.ensure_2fa_row(user["id"])
+    await _reauthenticate(user, row, req.password)
+    if row["enabled"]:
+        if not req.code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Enter your two-factor or recovery code",
+            )
+        await mfa.verify_code(user["id"], row, req.code)
+
+    services = await get_user_services(user["id"])
+    service_ids = [service["id"] for service in services]
+    if not await delete_user_account(user["id"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    _clear_service_runtime_state(service_ids)
+    return {"status": "ok"}
+
+
 # ── OIDC / SSO ──
 
 @app.get("/api/oidc/config")
@@ -872,9 +917,28 @@ async def delete_service(service_id: int, user: dict = Depends(get_current_user)
     if not existing:
         raise HTTPException(status_code=404, detail="Service not found")
     await delete_user_service(service_id, user["id"])
-    _last_fetch_error.pop(service_id, None)
-    _last_fetch_attempt_at.pop(service_id, None)
+    _clear_service_runtime_state([service_id])
     return {"status": "ok"}
+
+
+class DeleteAllServicesRequest(BaseModel):
+    confirmation: str
+
+
+@app.delete("/api/user-services")
+async def delete_all_services(
+    req: DeleteAllServicesRequest, user: dict = Depends(get_current_user)
+):
+    if req.confirmation.strip() != "DELETE ALL":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Type "DELETE ALL" to confirm',
+        )
+    services = await get_user_services(user["id"])
+    service_ids = [service["id"] for service in services]
+    deleted_count = await delete_all_user_services(user["id"])
+    _clear_service_runtime_state(service_ids)
+    return {"status": "ok", "deleted_count": deleted_count}
 
 
 # Category CRUD Endpoints (home-page sections that services can be assigned to)
