@@ -6,6 +6,9 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4188';
 
 export default defineConfig({
   output: 'static',
+  server: {
+    allowedHosts: true,
+  },
   vite: {
     server: {
       proxy: {
