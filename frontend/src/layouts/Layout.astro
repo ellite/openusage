@@ -9,7 +9,7 @@ const { title } = Astro.props;
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>{title} — OpenUsage</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260924" />
     <link rel="manifest" href="/manifest.json?v=20260924" crossorigin="use-credentials" />
@@ -17,6 +17,8 @@ const { title } = Astro.props;
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OpenUsage" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260924" />
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
     <script is:inline>
@@ -101,9 +103,16 @@ const { title } = Astro.props;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 15px;
         line-height: 1.5;
-        min-height: 100vh;
+        min-height: 100dvh;
         font-variant-numeric: tabular-nums;
         transition: background 0.15s ease, color 0.15s ease;
+      }
+      /* Chrome on Android can calculate 100dvh too tall when an installed PWA is
+         first opened or refreshed. Use the stable viewport in standalone mode so
+         short pages do not gain a browser-bar-sized overflow. This still permits
+         normal document scrolling and pull-to-refresh. */
+      @media (display-mode: standalone) {
+        body { min-height: 100svh; }
       }
       :root[data-theme="light"] img[src="/icons/custom.svg"] {
         filter: brightness(0) saturate(100%);
