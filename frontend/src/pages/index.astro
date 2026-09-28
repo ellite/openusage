@@ -1537,7 +1537,12 @@ import ServiceManager from '../components/ServiceManager.astro';
       }
       if (d.period_start) html += `<hr class="divider">` + row('Since', fmtDate(d.period_start));
       const sessionWarning = d.session_error
-        ? serviceAlertHtml('warning', 'Some account data is unavailable', d.session_error)
+        ? serviceAlertHtml(
+            'warning',
+            'Some account data is unavailable',
+            d.session_error,
+            curlLinkHtml(svcId, type)
+          )
         : '';
       body.innerHTML = staleWarning + sessionWarning + html;
       setAccent(svcId, 'ok');

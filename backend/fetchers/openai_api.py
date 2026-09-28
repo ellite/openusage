@@ -17,7 +17,7 @@ def _month_start_epoch() -> int:
     return int(start.timestamp())
 
 
-SESSION_EXPIRED_MSG = "Session key expired or invalid — please re-import cURL in Settings"
+SESSION_EXPIRED_MSG = "Session key expired or invalid"
 
 
 async def _fetch_subscription(client: httpx.AsyncClient, session_key: str, org_id: str) -> tuple[dict | None, str | None]:
