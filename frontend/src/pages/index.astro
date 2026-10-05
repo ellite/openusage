@@ -1653,6 +1653,16 @@ import ServiceManager from '../components/ServiceManager.astro';
             severities.push(getUsageSeverity(pct, null, null));
             html += listRow(label, pct, null, '', null);
 
+          } else if (ftype === 'percentage_fraction') {
+            const pct = Math.max(0, Math.min(100, (Number(f.value) || 0) * 100));
+            severities.push(getUsageSeverity(pct, null, null));
+            html += listRow(label, pct, null, '', null);
+
+          } else if (ftype === 'percentage_fraction_ring') {
+            const pct = Math.max(0, Math.min(100, (Number(f.value) || 0) * 100));
+            severities.push(getUsageSeverity(pct, null, null));
+            html += heroBlock(label, { utilization: pct, resets_at: null }, null, null);
+
           } else if (ftype === 'currency') {
             const num = Number(f.value);
             const displayNum = isNaN(num) ? String(f.value ?? '—') : (Number.isInteger(num) ? num.toString() : num.toFixed(2));

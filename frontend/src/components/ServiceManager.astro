@@ -996,6 +996,8 @@
       method: string;
       body: string;
       headers?: string;
+      successPath?: string;
+      successValue?: string;
       refreshIntervalMinutes?: number;
       fields: CustomApiPresetField[];
     };
@@ -1198,6 +1200,23 @@
         ],
       },
       {
+        id: 'preset_premiumize',
+        name: 'Premiumize.me',
+        category: 'Cloud Storage',
+        icon: 'https://www.google.com/s2/favicons?sz=128&domain=premiumize.me',
+        url: 'https://www.premiumize.me/api/account/info',
+        method: 'GET',
+        body: '',
+        headers: '{"Authorization": "Bearer {{api_key}}"}',
+        successPath: 'status',
+        successValue: 'success',
+        fields: [
+          { label: 'Fair-usage', path: 'limit_used', type: 'percentage_fraction_ring' },
+          { label: 'Premium until', path: 'premium_until', type: 'date' },
+          { label: 'Booster points', path: 'booster_points', type: 'number' },
+        ],
+      },
+      {
         id: 'preset_sendgrid',
         name: 'SendGrid',
         category: 'Communications',
@@ -1312,6 +1331,8 @@
       (document.getElementById('custom-method') as HTMLSelectElement).value = preset.method || 'POST';
       (document.getElementById('custom-body') as HTMLTextAreaElement).value = preset.body || '';
       (document.getElementById('custom-headers') as HTMLTextAreaElement).value = preset.headers || '';
+      (document.getElementById('custom-success-path') as HTMLInputElement).value = preset.successPath || '';
+      (document.getElementById('custom-success-value') as HTMLInputElement).value = preset.successValue || '';
       (document.getElementById('service-refresh-interval') as HTMLInputElement).value = String(
         preset.refreshIntervalMinutes || DEFAULT_REFRESH_INTERVAL_MINUTES
       );
@@ -1671,6 +1692,8 @@
           <option value="text">Text</option>
           <option value="number">Number</option>
           <option value="percentage">Percentage</option>
+          <option value="percentage_fraction">Percentage (0–1 fraction)</option>
+          <option value="percentage_fraction_ring">Percentage ring (0–1 fraction)</option>
           <option value="currency">Currency</option>
           <option value="balance">Balance</option>
           <option value="plan">Plan</option>
