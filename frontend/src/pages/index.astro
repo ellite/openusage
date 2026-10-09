@@ -1575,7 +1575,7 @@ import ServiceManager from '../components/ServiceManager.astro';
       setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
 
     } else if (type === 'ollama_cloud') {
-      let html = planRow(null);
+      let html = planRow(d.plan ? escapeHtml(String(d.plan)) : null);
       const severities: any[] = [];
       if (typeof d.percent_used === 'number') {
         severities.push(getUsageSeverity(d.percent_used, d.resets_at ?? null, null));
@@ -1662,6 +1662,9 @@ import ServiceManager from '../components/ServiceManager.astro';
             const pct = Math.max(0, Math.min(100, (Number(f.value) || 0) * 100));
             severities.push(getUsageSeverity(pct, null, null));
             html += heroBlock(label, { utilization: pct, resets_at: null }, null, null);
+
+          } else if (ftype === 'boolean') {
+            html += row(label, f.value === true || f.value === 'true' ? 'Yes' : 'No');
 
           } else if (ftype === 'currency') {
             const num = Number(f.value);

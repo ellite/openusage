@@ -68,7 +68,7 @@
 | DeepSeek | Account balance | API key |
 | GitHub Copilot | Plan, quota reset date, premium requests, chat, and completions | GitHub device login or token |
 | OpenAI | Current-month organization spend, optionally credit balance and subscription details | Admin API key, with optional browser-session import |
-| Ollama Cloud | Account balance, free-usage percentage, and reset time | Browser cURL import |
+| Ollama Cloud | Plan, account balance, free-usage percentage, and reset time | Browser cURL import |
 | Custom API | Any fields you pick from a JSON response, for providers with no dedicated integration | Your own URL/method/headers/body |
 
 Provider integrations that use browser sessions or undocumented endpoints can change as providers update their services. Reconnect the provider from **Settings** if its session expires.

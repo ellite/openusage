@@ -14,7 +14,18 @@ SETTINGS_URL = "https://ollama.com/settings"
 # ollama.com/settings is server-rendered HTML, not a JSON API -- these are
 # scraped straight out of the markup and will break if the page changes.
 BALANCE_RE = re.compile(r'id="extra-usage-balance"[^>]*>\s*\$?([\d.,]+)')
-PERCENT_RE = re.compile(r'Free usage</span>\s*<span class="text-sm"\s*>\s*([\d.]+)%\s*used')
+PLAN_RE = re.compile(
+    r'Usage credits\s*<span[^>]*>\s*([^<]+?)\s*</span>', re.IGNORECASE
+)
+PERCENT_RES = (
+    # Current markup puts the value in the usage meter's accessible label.
+    re.compile(r'aria-label=["\']Free usage:\s*([\d.,]+)%["\']', re.IGNORECASE),
+    # Older markup displayed "N% used" in a sibling span.
+    re.compile(
+        r'Free usage</span>\s*<span[^>]*>\s*([\d.,]+)%\s*(?:used)?\s*</span>',
+        re.IGNORECASE,
+    ),
+)
 RESET_RE = re.compile(r'class="[^"]*\blocal-time\b[^"]*"\s+data-time="([^"]+)"')
 
 
@@ -26,6 +37,30 @@ def parse_cookie_string(raw: str) -> dict:
             k, v = part.split("=", 1)
             cookies[k.strip()] = v.strip()
     return cookies
+
+
+def parse_settings_html(html: str) -> dict:
+    data = {}
+
+    m = BALANCE_RE.search(html)
+    if m:
+        data["balance"] = float(m.group(1).replace(",", ""))
+
+    m = PLAN_RE.search(html)
+    if m:
+        data["plan"] = m.group(1).strip().title()
+
+    for pattern in PERCENT_RES:
+        m = pattern.search(html)
+        if m:
+            data["percent_used"] = float(m.group(1).replace(",", ""))
+            break
+
+    m = RESET_RE.search(html)
+    if m:
+        data["resets_at"] = m.group(1)
+
+    return data
 
 
 async def fetch_ollama_cloud(config: dict = None) -> dict:
@@ -67,18 +102,4 @@ async def fetch_ollama_cloud(config: dict = None) -> dict:
             "error": "Not signed in — cookies expired, re-paste a fresh cURL",
         }
 
-    data = {}
-
-    m = BALANCE_RE.search(html)
-    if m:
-        data["balance"] = float(m.group(1).replace(",", ""))
-
-    m = PERCENT_RE.search(html)
-    if m:
-        data["percent_used"] = float(m.group(1))
-
-    m = RESET_RE.search(html)
-    if m:
-        data["resets_at"] = m.group(1)
-
-    return {"configured": True, "status": "ok", "data": data}
+    return {"configured": True, "status": "ok", "data": parse_settings_html(html)}
