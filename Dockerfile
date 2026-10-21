@@ -5,22 +5,25 @@ RUN npm install
 COPY frontend/ .
 RUN npm run build
 
-FROM python:3.12-slim
+FROM python:3.12-alpine
 WORKDIR /app
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 ENV TZ=UTC
 
-# gosu drops from root to the requested PUID/PGID in entrypoint.sh; tzdata
-# provides the /usr/share/zoneinfo data TZ is symlinked from
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gosu \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/*
+# su-exec drops from root to the requested PUID/PGID in entrypoint.sh; tzdata
+# provides the /usr/share/zoneinfo data TZ is symlinked from. Nothing else is
+# installed: every package left in the image shows up in vulnerability scans.
+RUN apk upgrade --no-cache && apk add --no-cache \
+    su-exec \
+    tzdata
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# pip and setuptools are removed afterwards since nothing installs packages at
+# runtime, and pip's own findings show up in scans.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y pip setuptools
 COPY backend/ .
 COPY --from=frontend-builder /app/dist ./static
 RUN mkdir -p /app/data
