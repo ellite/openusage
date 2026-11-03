@@ -98,6 +98,16 @@ async def init_db():
                 "ALTER TABLE user_services ADD COLUMN refresh_interval_minutes INTEGER NOT NULL DEFAULT 5"
             )
 
+        # store_history opts a service into keeping every successful fetch
+        # (so usage/spend can be charted over time). Without it only the
+        # newest row is kept. Installs that predate the flag were already
+        # appending forever, so they are grandfathered in as enabled.
+        if "store_history" not in cols:
+            await db.execute(
+                "ALTER TABLE user_services ADD COLUMN store_history INTEGER NOT NULL DEFAULT 0"
+            )
+            await db.execute("UPDATE user_services SET store_history = 1")
+
         # Same pattern for the account/auth columns added alongside OIDC,
         # password reset and 2FA. password_hash stays NOT NULL even for
         # OIDC-only accounts (they get an unusable random hash on creation)
@@ -303,6 +313,7 @@ def _load_service_row(row) -> dict:
     item = dict(row)
     item["config"] = json.loads(item["config"]) if item["config"] else {}
     item["notify_thresholds"] = json.loads(item["notify_thresholds"]) if item["notify_thresholds"] else {}
+    item["store_history"] = bool(item.get("store_history"))
     return item
 
 
@@ -342,13 +353,14 @@ async def add_user_service(
     category_id: int | None = None,
     notify_thresholds: dict | None = None,
     refresh_interval_minutes: int = 5,
+    store_history: bool = False,
 ):
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             """
-            INSERT INTO user_services (user_id, service_type, name, config, category_id, notify_thresholds, refresh_interval_minutes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO user_services (user_id, service_type, name, config, category_id, notify_thresholds, refresh_interval_minutes, store_history, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -358,6 +370,7 @@ async def add_user_service(
                 category_id,
                 json.dumps(notify_thresholds or {}),
                 refresh_interval_minutes,
+                1 if store_history else 0,
                 now,
                 now,
             ),
@@ -374,8 +387,12 @@ async def update_user_service(
     category_id: int | None = None,
     notify_thresholds: dict | None = None,
     refresh_interval_minutes: int | None = None,
+    store_history: bool | None = None,
 ):
     now = datetime.now(timezone.utc).isoformat()
+    # None leaves the stored flag untouched (credential rotation, category
+    # moves, older clients), same convention as refresh_interval_minutes.
+    store_history_value = None if store_history is None else (1 if store_history else 0)
     async with aiosqlite.connect(DB_PATH) as db:
         if notify_thresholds is None:
             # Internal credential rotation and older PUT callers update only
@@ -386,6 +403,7 @@ async def update_user_service(
                 UPDATE user_services
                 SET name = ?, config = ?, category_id = ?,
                     refresh_interval_minutes = COALESCE(?, refresh_interval_minutes),
+                    store_history = COALESCE(?, store_history),
                     updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
@@ -394,6 +412,7 @@ async def update_user_service(
                     json.dumps(config),
                     category_id,
                     refresh_interval_minutes,
+                    store_history_value,
                     now,
                     service_id,
                     user_id,
@@ -413,6 +432,7 @@ async def update_user_service(
                 UPDATE user_services
                 SET name = ?, config = ?, category_id = ?, notify_thresholds = ?,
                     refresh_interval_minutes = COALESCE(?, refresh_interval_minutes),
+                    store_history = COALESCE(?, store_history),
                     updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
@@ -422,6 +442,7 @@ async def update_user_service(
                     category_id,
                     json.dumps(normalized_thresholds),
                     refresh_interval_minutes,
+                    store_history_value,
                     now,
                     service_id,
                     user_id,
@@ -434,6 +455,10 @@ async def update_user_service(
                     "DELETE FROM service_notify_state WHERE user_service_id = ?",
                     (service_id,),
                 )
+        if store_history is False:
+            # Turning history off drops the accumulated rows, keeping only
+            # the newest so the dashboard card still has data to show.
+            await _prune_usage_history(db, service_id)
         await db.commit()
 
 
@@ -569,6 +594,17 @@ async def get_push_subscriptions(user_id: int):
             return [dict(r) for r in rows]
 
 
+async def _prune_usage_history(db, user_service_id: int):
+    await db.execute(
+        """
+        DELETE FROM service_usage_history
+        WHERE user_service_id = ?
+          AND id < (SELECT MAX(id) FROM service_usage_history WHERE user_service_id = ?)
+        """,
+        (user_service_id, user_service_id),
+    )
+
+
 async def save_service_usage(user_service_id: int, data: dict) -> bool:
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
@@ -580,8 +616,31 @@ async def save_service_usage(user_service_id: int, data: dict) -> bool:
             """,
             (user_service_id, json.dumps(data), now, user_service_id),
         )
+        inserted = cursor.rowcount > 0
+        if inserted:
+            async with db.execute(
+                "SELECT store_history FROM user_services WHERE id = ?", (user_service_id,)
+            ) as cur:
+                row = await cur.fetchone()
+            if not (row and row[0]):
+                await _prune_usage_history(db, user_service_id)
         await db.commit()
-        return cursor.rowcount > 0
+        return inserted
+
+
+async def get_service_usage_history(user_service_id: int, since: str | None = None, limit: int = 1000):
+    """Oldest-first fetch history for charting; capped at the newest `limit` rows."""
+    query = "SELECT data, fetched_at FROM service_usage_history WHERE user_service_id = ?"
+    params: list = [user_service_id]
+    if since:
+        query += " AND fetched_at >= ?"
+        params.append(since)
+    query += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+    return [{"data": json.loads(r[0]), "fetched_at": r[1]} for r in reversed(rows)]
 
 
 async def get_latest_service_usage(user_service_id: int):

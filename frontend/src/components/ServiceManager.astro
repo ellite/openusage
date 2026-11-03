@@ -48,6 +48,14 @@
             <p class="msg-hint">Manual refreshes still run immediately. Maximum: 10,080 minutes (7 days).</p>
           </div>
 
+          <div class="form-group">
+            <label for="service-store-history" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="service-store-history" style="width:auto;" />
+              Store usage history
+            </label>
+            <p class="msg-hint">Keep every successful refresh so you can see how usage and spend change over time. Off keeps only the latest reading; turning it off deletes existing history.</p>
+          </div>
+
           <hr class="modal-divider" />
 
           <!-- Config Form: Claude -->
@@ -1515,6 +1523,7 @@
         (document.getElementById('service-refresh-interval') as HTMLInputElement).value = String(
           svc.refresh_interval_minutes || DEFAULT_REFRESH_INTERVAL_MINUTES
         );
+        (document.getElementById('service-store-history') as HTMLInputElement).checked = !!svc.store_history;
 
         const cfg = svc.config || {};
         (document.getElementById('claude-org-url') as HTMLInputElement).value = cfg.claude_org_url || '';
@@ -1570,6 +1579,7 @@
         (document.getElementById('service-refresh-interval') as HTMLInputElement).value = String(
           DEFAULT_REFRESH_INTERVAL_MINUTES
         );
+        (document.getElementById('service-store-history') as HTMLInputElement).checked = false;
 
         document.querySelectorAll('#service-form input[type="text"], #service-form input[type="password"], #service-form textarea').forEach((el: any) => {
           if (el.id !== 'edit-service-id') el.value = '';
@@ -2169,11 +2179,13 @@
         monthly_threshold: readThreshold('monthly'),
       };
 
+      const store_history = (document.getElementById('service-store-history') as HTMLInputElement).checked;
+
       const url = editId ? `/api/user-services/${editId}` : '/api/user-services';
       const method = editId ? 'PUT' : 'POST';
       const body = editId
-        ? { name, config, category_id, notify_thresholds, refresh_interval_minutes }
-        : { service_type: type, name, config, category_id, notify_thresholds, refresh_interval_minutes };
+        ? { name, config, category_id, notify_thresholds, refresh_interval_minutes, store_history }
+        : { service_type: type, name, config, category_id, notify_thresholds, refresh_interval_minutes, store_history };
 
       try {
         const res = await fetch(url, {

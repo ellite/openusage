@@ -11,7 +11,7 @@ from urllib.parse import quote
 import pyotp
 import qrcode
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +48,7 @@ from db import (
     delete_all_user_services,
     delete_user_account,
     save_service_usage,
+    get_service_usage_history,
     get_latest_service_usage,
     verify_password,
     get_categories,
@@ -855,6 +856,7 @@ async def create_user_service(req: UserServiceCreate, user: dict = Depends(get_c
         req.category_id,
         req.notify_thresholds,
         req.refresh_interval_minutes,
+        req.store_history,
     )
     return {"status": "ok", "id": svc_id}
 
@@ -869,6 +871,8 @@ class UserServiceUpdate(BaseModel):
     # None likewise preserves the cadence for older clients and internal
     # config/category-only updates.
     refresh_interval_minutes: Optional[int] = Field(default=None, ge=1, le=10080)
+    # None preserves the stored flag, same as the fields above.
+    store_history: Optional[bool] = None
 
 
 @app.put("/api/user-services/{service_id}")
@@ -897,6 +901,7 @@ async def update_service(
         req.category_id,
         req.notify_thresholds,
         req.refresh_interval_minutes,
+        req.store_history,
     )
     _last_fetch_error.pop(service_id, None)
     updated_svc = {
@@ -906,9 +911,28 @@ async def update_service(
         "category_id": req.category_id,
         "notify_thresholds": effective_thresholds,
         "refresh_interval_minutes": effective_refresh_interval,
+        "store_history": (
+            existing.get("store_history", False)
+            if req.store_history is None
+            else req.store_history
+        ),
     }
     _trigger_background_live_fetch(updated_svc)
     return {"status": "ok"}
+
+
+@app.get("/api/user-services/{service_id}/history")
+async def get_service_history(
+    service_id: int,
+    since: Optional[str] = None,
+    limit: int = Query(default=1000, ge=1, le=10000),
+    user: dict = Depends(get_current_user),
+):
+    existing = await get_user_service(service_id, user["id"])
+    if not existing:
+        raise HTTPException(status_code=404, detail="Service not found")
+    history = await get_service_usage_history(service_id, since, limit)
+    return {"store_history": existing["store_history"], "history": history}
 
 
 @app.delete("/api/user-services/{service_id}")
