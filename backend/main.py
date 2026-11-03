@@ -74,7 +74,7 @@ import email_notifier
 import oidc
 import two_factor as mfa
 import push_notifier
-from thresholds import APPLICABLE_THRESHOLDS, extract_usage_percentages
+from thresholds import APPLICABLE_THRESHOLDS, extract_history_metrics, extract_usage_percentages
 from curl_parse import parse_curl, parse_gemini_curl, parse_openai_session_curl, parse_chatgpt_curl, parse_ollama_curl
 from fetchers.claude import fetch_claude
 from fetchers.gemini import fetch_gemini
@@ -841,6 +841,7 @@ class UserServiceCreate(BaseModel):
     refresh_interval_minutes: int = Field(
         default=DEFAULT_REFRESH_INTERVAL_MINUTES, ge=1, le=10080
     )
+    store_history: bool = False
 
 
 @app.post("/api/user-services")
@@ -932,7 +933,20 @@ async def get_service_history(
     if not existing:
         raise HTTPException(status_code=404, detail="Service not found")
     history = await get_service_usage_history(service_id, since, limit)
-    return {"store_history": existing["store_history"], "history": history}
+    # Pre-extract the chartable figures so the client doesn't have to know
+    # every provider's payload shape.
+    series: dict = {}
+    for entry in history:
+        metrics = extract_history_metrics(existing["service_type"], entry["data"])
+        for key, m in metrics.items():
+            s = series.setdefault(key, {"label": m["label"], "unit": m["unit"], "points": []})
+            s["points"].append({"t": entry["fetched_at"], "v": m["value"]})
+    return {
+        "store_history": existing["store_history"],
+        "service_type": existing["service_type"],
+        "series": series,
+        "history": history,
+    }
 
 
 @app.delete("/api/user-services/{service_id}")

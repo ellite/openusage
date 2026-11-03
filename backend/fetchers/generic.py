@@ -148,6 +148,7 @@ def _extract_fields(payload, fields: list) -> list:
             "type": field_type,
             "symbol": f.get("symbol") or "",
             "value": _resolve_path(payload, path),
+            "history": bool(f.get("history")),
         }
         if field_type in PROGRESS_FIELD_TYPES:
             total_path = (f.get("total_path") or "").strip()

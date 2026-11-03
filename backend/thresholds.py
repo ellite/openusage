@@ -68,3 +68,91 @@ def extract_usage_percentages(service_type: str, data: dict) -> dict:
             out["session"] = pct
 
     return out
+
+
+_PERCENT_LABELS = {"session": "Session", "weekly": "Weekly", "monthly": "Monthly"}
+
+
+def extract_history_metrics(service_type: str, data: dict) -> dict:
+    """Returns {metric_key: {"label", "unit", "value"}} for every figure worth
+    charting from one stored fetch: the percent-used buckets plus the
+    balance/spend figures of the API-key providers."""
+    data = data or {}
+    out = {}
+    for key, pct in extract_usage_percentages(service_type, data).items():
+        out[key] = {"label": _PERCENT_LABELS.get(key, key), "unit": "%", "value": pct}
+
+    if service_type == "deepseek":
+        infos = data.get("balance_infos") or []
+        info = next((i for i in infos if i.get("currency") == "USD"), infos[0] if infos else None)
+        try:
+            if info is not None:
+                out["balance"] = {
+                    "label": "Balance",
+                    "unit": info.get("currency") or "USD",
+                    "value": float(info.get("total_balance")),
+                }
+        except (TypeError, ValueError):
+            pass
+
+    elif service_type == "custom":
+        out.update(_custom_history_metrics(data))
+
+    elif service_type == "openai":
+        currency = (data.get("currency") or "usd").upper()
+        spend = _num(data.get("spend_this_month"))
+        if spend is not None:
+            out["spend"] = {"label": "Spend this month", "unit": currency, "value": spend}
+        balance = _num((data.get("credit_balance") or {}).get("total_available"))
+        if balance is not None:
+            out["balance"] = {"label": "Credit balance", "unit": currency, "value": balance}
+
+    return out
+
+
+_PROGRESS_TYPES = {"progress", "progress_remaining", "progress_bar", "progress_bar_remaining"}
+_REMAINING_TYPES = {"progress_remaining", "progress_bar_remaining"}
+
+
+def _to_float(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.replace(",", "").strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _custom_history_metrics(data: dict) -> dict:
+    """Custom API fields the user ticked "track history" on. The field's
+    configured type decides how the number is read and charted."""
+    out = {}
+    for f in data.get("fields") or []:
+        if not f.get("history"):
+            continue
+        label = (f.get("label") or "").strip()
+        ftype = f.get("type") or "text"
+        value = _to_float(f.get("value"))
+        if not label or value is None:
+            continue
+        unit = ""
+        if ftype in _PROGRESS_TYPES:
+            total = _to_float(f.get("total"))
+            if not total or total <= 0:
+                continue
+            used = total - value if ftype in _REMAINING_TYPES else value
+            value, unit = used / total * 100, "%"
+        elif ftype == "percentage":
+            unit = "%"
+        elif ftype in ("percentage_fraction", "percentage_fraction_ring"):
+            value, unit = value * 100, "%"
+        elif ftype in ("currency", "balance"):
+            unit = (f.get("symbol") or "").strip()
+        elif ftype != "number":
+            continue
+        out[f"field:{label}"] = {"label": label, "unit": unit, "value": value}
+    return out

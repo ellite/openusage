@@ -583,6 +583,19 @@
       flex: 1 0 100%;
       width: 100%;
     }
+    :global(.custom-field-row .cf-history-label) {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1 0 100%;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    :global(.custom-field-row .cf-history-label input) {
+      flex: 0 0 auto;
+      width: auto;
+      min-height: 0;
+    }
     :global(.custom-field-row .cf-actions) {
       display: flex;
       gap: 8px;
@@ -986,6 +999,9 @@
     // take a remaining-count value instead of a used-count one. Must stay in
     // sync with index.astro's identically-named sets.
     const PROGRESS_FIELD_TYPES = new Set(['progress', 'progress_remaining', 'progress_bar', 'progress_bar_remaining']);
+    // Numeric field types whose value can be charted over time (progress
+    // types are handled separately). Keep in sync with backend/thresholds.py.
+    const HISTORY_FIELD_TYPES = new Set(['number', 'percentage', 'percentage_fraction', 'percentage_fraction_ring', 'currency', 'balance']);
     const REMAINING_PROGRESS_FIELD_TYPES = new Set(['progress_remaining', 'progress_bar_remaining']);
     const DEFAULT_REFRESH_INTERVAL_MINUTES = 5;
 
@@ -1557,7 +1573,8 @@
             f.path || '',
             f.type || 'text',
             f.symbol || '',
-            f.total_path || ''
+            f.total_path || '',
+            !!f.history
           ));
         } else {
           addCustomFieldRow();
@@ -1690,7 +1707,7 @@
       });
     }
 
-    function addCustomFieldRow(label = '', path = '', type = 'text', symbol = '', totalPath = '') {
+    function addCustomFieldRow(label = '', path = '', type = 'text', symbol = '', totalPath = '', history = false) {
       const list = document.getElementById('custom-fields-list');
       if (!list) return;
       const row = document.createElement('div');
@@ -1718,6 +1735,9 @@
         </select>
         <input type="text" class="cf-symbol" placeholder="$" style="display:none;" />
         <select class="cf-total-path form-select" aria-label="Total field" style="display:none;"></select>
+        <label class="cf-history-label" title="Chart this field over time (needs 'Store usage history')" style="display:none;">
+          <input type="checkbox" class="cf-history" /> Track history
+        </label>
         <div class="cf-actions">
           <button type="button" class="btn btn-sm cf-move cf-up" title="Move up" aria-label="Move field up">↑</button>
           <button type="button" class="btn btn-sm cf-move cf-down" title="Move down" aria-label="Move field down">↓</button>
@@ -1733,12 +1753,18 @@
       pathInput.value = path;
       typeSelect.value = type;
       symbolInput.value = symbol;
+      const historyLabel = row.querySelector('.cf-history-label') as HTMLElement;
+      const historyBox = row.querySelector('.cf-history') as HTMLInputElement;
+      historyBox.checked = !!history;
       updateCustomTotalPathOptions(totalPathSelect, totalPath);
       const updateTypeInputs = () => {
         const isProgress = PROGRESS_FIELD_TYPES.has(typeSelect.value);
         const isRemaining = REMAINING_PROGRESS_FIELD_TYPES.has(typeSelect.value);
         symbolInput.style.display = (typeSelect.value === 'currency' || typeSelect.value === 'balance') ? '' : 'none';
         totalPathSelect.style.display = isProgress ? '' : 'none';
+        const chartable = HISTORY_FIELD_TYPES.has(typeSelect.value) || isProgress;
+        historyLabel.style.display = chartable ? '' : 'none';
+        if (!chartable) historyBox.checked = false;
         if (isProgress) {
           labelInput.value = normalizeProgressLabel(labelInput.value);
         }
@@ -1787,6 +1813,7 @@
         type: (row.querySelector('.cf-type') as HTMLSelectElement).value,
         symbol: (row.querySelector('.cf-symbol') as HTMLInputElement).value.trim(),
         total_path: (row.querySelector('.cf-total-path') as HTMLSelectElement).value,
+        history: (row.querySelector('.cf-history') as HTMLInputElement).checked,
       })).filter((f: any) => f.label && f.path);
 
       return {

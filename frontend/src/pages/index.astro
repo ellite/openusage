@@ -54,6 +54,25 @@ import ServiceManager from '../components/ServiceManager.astro';
     </div>
   </div>
 
+  <!-- Usage history popup -->
+  <div id="history-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal history-modal">
+      <div class="modal-header">
+        <h3 id="history-modal-title">Usage history</h3>
+        <button id="history-modal-close-btn" class="icon-btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-ranges" id="history-ranges">
+          <button type="button" class="btn btn-sm" data-days="1">24h</button>
+          <button type="button" class="btn btn-sm" data-days="7">7d</button>
+          <button type="button" class="btn btn-sm" data-days="30">30d</button>
+          <button type="button" class="btn btn-sm" data-days="0">All</button>
+        </div>
+        <div id="history-content" class="msg-hint">Loading…</div>
+      </div>
+    </div>
+  </div>
+
   <ServiceManager />
 </Layout>
 
@@ -845,6 +864,19 @@ import ServiceManager from '../components/ServiceManager.astro';
   .modal-body {
     padding: 24px;
   }
+  .history-modal { max-width: 680px; box-sizing: border-box; }
+  /* flow-root keeps the last chart's bottom margin inside the box, so its
+     measured height is the same before and after min-height is applied. */
+  #history-content { display: flow-root; transition: opacity 0.15s; }
+  .history-ranges { display: flex; gap: 6px; margin-bottom: 16px; }
+  .history-ranges .btn.active { border-color: var(--accent, currentColor); font-weight: 700; }
+  :global(.history-chart) { margin-bottom: 20px; }
+  :global(.history-chart h4) { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; }
+  :global(.history-chart svg) { width: 100%; height: auto; display: block; }
+  :global(.history-chart .grid) { stroke: var(--border); stroke-width: 1; }
+  :global(.history-chart .line) { fill: none; stroke: var(--accent, #6aa5ff); stroke-width: 2; stroke-linejoin: round; }
+  :global(.history-chart .dot) { fill: var(--accent, #6aa5ff); }
+  :global(.history-chart text) { fill: var(--text-muted); font-size: 10px; }
   .curl-box {
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -1290,6 +1322,13 @@ import ServiceManager from '../components/ServiceManager.astro';
     </span>`;
   }
 
+  function historyButtonHtml(svcId: number | string, name: string): string {
+    const safeName = escapeHtml(name);
+    return `<button type="button" class="btn card-action-btn card-history-btn" data-svc-id="${svcId}" data-svc-name="${safeName}" title="Usage history for ${safeName}" aria-label="Usage history for ${safeName}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+    </button>`;
+  }
+
   function cardActionsHtml(svcId: number | string, name: string): string {
     const safeName = escapeHtml(name);
     return `<div class="card-actions">
@@ -1345,6 +1384,7 @@ import ServiceManager from '../components/ServiceManager.astro';
             <span class="service-name">${escapeHtml(name)}</span>
           </div>
           <div class="card-controls">
+            ${historyButtonHtml(svcId, name)}
             ${cardActionsHtml(svcId, name)}
             <div class="status card-status"><span class="badge" id="badge-${svcId}">—</span></div>
           </div>
@@ -2122,8 +2162,134 @@ import ServiceManager from '../components/ServiceManager.astro';
     }
   }
 
+  // ---- Usage history popup ----
+  let historySvcId: number | null = null;
+  let historyDays = 7;
+
+  function historyChartSvg(points: { t: string; v: number }[], unit: string): string {
+    const W = 600, H = 180, L = 44, R = 10, T = 10, B = 22;
+    const xs = points.map((p) => new Date(p.t).getTime());
+    const ys = points.map((p) => p.v);
+    let xmin = Math.min(...xs), xmax = Math.max(...xs);
+    let ymin = Math.min(...ys), ymax = Math.max(...ys);
+    if (unit === '%') { ymin = Math.min(0, ymin); ymax = Math.max(100, ymax); }
+    if (xmax === xmin) { xmin -= 1; xmax += 1; }
+    if (ymax === ymin) { ymax += 1; ymin -= 1; }
+    const sx = (x: number) => L + ((x - xmin) / (xmax - xmin)) * (W - L - R);
+    const sy = (y: number) => T + (1 - (y - ymin) / (ymax - ymin)) * (H - T - B);
+    const fmtY = (y: number) => (unit === '%' ? `${Math.round(y)}%` : y.toFixed(2));
+    const fmtX = (x: number) => new Date(x).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const path = points.map((p, i) => `${i ? 'L' : 'M'}${sx(xs[i]).toFixed(1)},${sy(p.v).toFixed(1)}`).join(' ');
+    const grid = [0, 0.5, 1].map((f) => {
+      const y = ymin + (ymax - ymin) * f;
+      return `<line class="grid" x1="${L}" x2="${W - R}" y1="${sy(y)}" y2="${sy(y)}"/><text x="${L - 6}" y="${sy(y) + 3}" text-anchor="end">${fmtY(y)}</text>`;
+    }).join('');
+    const dots = points.length <= 60
+      ? points.map((p, i) => `<circle class="dot" cx="${sx(xs[i]).toFixed(1)}" cy="${sy(p.v).toFixed(1)}" r="2.5"><title>${escapeHtml(fmtX(xs[i]))}: ${fmtY(p.v)}${unit === '%' ? '' : ' ' + escapeHtml(unit)}</title></circle>`).join('')
+      : '';
+    return `<svg viewBox="0 0 ${W} ${H}" role="img">${grid}<path class="line" d="${path}"/>${dots}
+      <text x="${L}" y="${H - 6}">${escapeHtml(fmtX(xmin))}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${escapeHtml(fmtX(xmax))}</text></svg>`;
+  }
+
+  // The modal may only grow while it is open: after each render, pin its
+  // min-height to the tallest it has been, so switching ranges never shrinks it.
+  function lockHistoryModalHeight() {
+    const modal = document.querySelector('#history-modal .history-modal') as HTMLElement | null;
+    if (!modal) return;
+    const h = Math.max(modal.offsetHeight, parseFloat(modal.style.minHeight) || 0);
+    modal.style.minHeight = `${h}px`;
+  }
+
+  async function loadHistory() {
+    const box = document.getElementById('history-content');
+    if (!box || historySvcId == null) return;
+    // Keep the previous charts on screen (dimmed) while the next range loads and
+    // never let the box shrink, so the modal doesn't collapse and re-grow.
+    const hasCharts = !!box.querySelector('.history-chart');
+    if (hasCharts) {
+      box.style.opacity = '0.5';
+    } else {
+      box.className = 'msg-hint';
+      box.textContent = 'Loading…';
+    }
+    document.querySelectorAll('#history-ranges .btn').forEach((b) =>
+      b.classList.toggle('active', Number((b as HTMLElement).dataset.days) === historyDays));
+    const qs = historyDays ? `?since=${encodeURIComponent(new Date(Date.now() - historyDays * 86400000).toISOString())}` : '';
+    try {
+      const res = await fetch(`/api/user-services/${historySvcId}/history${qs}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      if (!body.store_history) {
+        box.textContent = 'History is off for this service. Edit the service and tick "Store usage history" to start recording.';
+        return;
+      }
+      const entries = Object.values(body.series || {}) as any[];
+      if (!entries.length) {
+        box.textContent = body.history.length
+          ? (body.service_type === 'custom'
+            ? 'No fields are tracked. Edit the service and tick "Track history" on the fields you want charted.'
+            : 'This service type has no chartable figures yet.')
+          : 'No history recorded yet. Data points appear after each refresh.';
+        return;
+      }
+      box.className = '';
+      box.innerHTML = entries.map((s: any) => {
+        const last = s.points[s.points.length - 1];
+        const lastTxt = s.unit === '%' ? `${Math.round(last.v)}%` : `${last.v.toFixed(2)} ${escapeHtml(s.unit)}`;
+        return `<div class="history-chart"><h4><span>${escapeHtml(s.label)}</span><span>${lastTxt} · ${s.points.length} pts</span></h4>${historyChartSvg(s.points, s.unit)}</div>`;
+      }).join('');
+    } catch (e: any) {
+      box.className = 'msg-hint';
+      box.textContent = `Could not load history (${e.message}).`;
+    } finally {
+      box.style.opacity = '';
+      lockHistoryModalHeight();
+    }
+  }
+
+  function openHistoryModal(svcId: number, name: string) {
+    historySvcId = svcId;
+    const content = document.getElementById('history-content');
+    if (content) { content.style.opacity = ''; content.innerHTML = ''; }
+    const dlg = document.querySelector('#history-modal .history-modal') as HTMLElement | null;
+    if (dlg) dlg.style.minHeight = '';
+    const title = document.getElementById('history-modal-title');
+    if (title) title.textContent = `${name} — usage history`;
+    const modal = document.getElementById('history-modal');
+    if (modal) modal.style.display = 'flex';
+    void loadHistory();
+  }
+
+  function closeHistoryModal() {
+    const modal = document.getElementById('history-modal');
+    if (modal) modal.style.display = 'none';
+    historySvcId = null;
+  }
+
+  document.getElementById('history-modal-close-btn')?.addEventListener('click', closeHistoryModal);
+  document.getElementById('history-modal')?.addEventListener('click', (e: MouseEvent) => {
+    if (e.target === e.currentTarget) closeHistoryModal();
+  });
+  document.getElementById('history-ranges')?.addEventListener('click', (e: MouseEvent) => {
+    const btn = (e.target as HTMLElement).closest('[data-days]') as HTMLElement | null;
+    if (!btn) return;
+    historyDays = Number(btn.dataset.days);
+    void loadHistory();
+  });
+
   document.addEventListener('click', (event: MouseEvent) => {
     const target = event.target as HTMLElement;
+    const historyButton = target.closest('.card-history-btn') as HTMLElement | null;
+    if (historyButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const el = document.createElement('textarea');
+      el.innerHTML = historyButton.dataset.svcName || '';
+      openHistoryModal(Number(historyButton.dataset.svcId), el.value);
+      return;
+    }
     const editButton = target.closest('.card-edit-btn') as HTMLElement | null;
     const deleteButton = target.closest('.card-delete-btn') as HTMLElement | null;
     const welcomeButton = target.closest('.open-service-manager-btn');
