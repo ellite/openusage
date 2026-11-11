@@ -75,7 +75,7 @@ import oidc
 import two_factor as mfa
 import push_notifier
 from thresholds import APPLICABLE_THRESHOLDS, extract_history_metrics, extract_usage_percentages
-from curl_parse import parse_curl, parse_gemini_curl, parse_openai_session_curl, parse_chatgpt_curl, parse_ollama_curl
+from curl_parse import parse_curl, parse_gemini_curl, parse_openai_session_curl, parse_chatgpt_curl, parse_ollama_curl, parse_opencode_curl
 from fetchers.claude import fetch_claude
 from fetchers.gemini import fetch_gemini
 from fetchers.deepseek import fetch_deepseek
@@ -83,6 +83,7 @@ from fetchers.copilot import fetch_copilot, start_device_flow, poll_device_flow
 from fetchers.openai_api import fetch_openai
 from fetchers.chatgpt import fetch_chatgpt
 from fetchers.ollama_cloud import fetch_ollama_cloud
+from fetchers.opencode import fetch_opencode
 from fetchers.generic import fetch_generic, test_generic
 
 ENABLE_ACCOUNT_CREATION = os.getenv("ENABLE_ACCOUNT_CREATION", "true").lower() in ("true", "1", "yes")
@@ -105,6 +106,7 @@ SERVICE_FETCHERS = {
     "openai": fetch_openai,
     "chatgpt": fetch_chatgpt,
     "ollama_cloud": fetch_ollama_cloud,
+    "opencode": fetch_opencode,
     "custom": fetch_generic,
 }
 
@@ -1111,6 +1113,15 @@ async def ollama_cloud_import_curl(item: CurlItem):
     try:
         parsed = parse_ollama_curl(item.curl)
         return {"status": "ok", "cookies": parsed["cookies"]}
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/api/import-curl/opencode")
+async def opencode_import_curl(item: CurlItem):
+    try:
+        parsed = parse_opencode_curl(item.curl)
+        return {"status": "ok", "cookies": parsed["cookies"], "org_id": parsed["org_id"]}
     except ValueError as e:
         return {"status": "error", "error": str(e)}
 

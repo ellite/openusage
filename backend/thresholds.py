@@ -14,6 +14,7 @@ APPLICABLE_THRESHOLDS = {
     "chatgpt": ("session", "weekly"),
     "copilot": ("monthly",),
     "ollama_cloud": ("session",),
+    "opencode": ("session", "weekly", "monthly"),
     "deepseek": (),
     "openai": (),
     "custom": (),
@@ -67,6 +68,13 @@ def extract_usage_percentages(service_type: str, data: dict) -> dict:
         if pct is not None:
             out["session"] = pct
 
+    elif service_type == "opencode":
+        # Go's 5-hour / weekly / monthly meters (absent without a Go subscription).
+        for key, bucket in (("five_hour", "session"), ("week", "weekly"), ("month", "monthly")):
+            pct = _num((data.get(key) or {}).get("percent_used"))
+            if pct is not None:
+                out[bucket] = pct
+
     return out
 
 
@@ -97,6 +105,12 @@ def extract_history_metrics(service_type: str, data: dict) -> dict:
 
     elif service_type == "custom":
         out.update(_custom_history_metrics(data))
+
+    elif service_type == "opencode":
+        for key, label in (("balance", "Zen credit balance"), ("cost_month", "Spend this month")):
+            value = _num(data.get(key))
+            if value is not None:
+                out[key] = {"label": label, "unit": "USD", "value": value}
 
     elif service_type == "openai":
         currency = (data.get("currency") or "usd").upper()

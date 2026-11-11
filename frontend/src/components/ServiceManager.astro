@@ -27,6 +27,7 @@
               <option value="openai">OpenAI</option>
               <option value="chatgpt">ChatGPT</option>
               <option value="ollama_cloud">Ollama Cloud</option>
+              <option value="opencode">OpenCode</option>
             </select>
           </div>
 
@@ -152,6 +153,25 @@
               <label for="chatgpt-cookies">Cookies String</label>
               <input type="text" id="chatgpt-cookies" placeholder="__Secure-next-auth.session-token=...; cf_clearance=...; _puid=..." />
               <p class="msg-hint">Include the Cloudflare clearance cookie (cf_clearance) from the same request — it expires in a few hours, so re-paste when fetches start failing even though you're still logged in.</p>
+            </div>
+          </div>
+
+          <!-- Config Form: OpenCode (Go / Zen) -->
+          <div id="config-opencode" class="config-section" style="display: none;">
+            <div class="curl-box">
+              <label>Import from cURL</label>
+              <textarea id="opencode-curl" placeholder="Paste a cURL request made from the opencode.ai console (Network tab → Fetch/XHR → Copy as cURL)..."></textarea>
+              <button type="button" id="opencode-parse-btn" class="btn btn-sm">Parse cURL</button>
+              <span id="opencode-curl-msg" class="msg-hint"></span>
+            </div>
+            <div class="form-group">
+              <label for="opencode-cookies">Cookies String</label>
+              <input type="text" id="opencode-cookies" placeholder="__Host-console_session=..." />
+            </div>
+            <div class="form-group">
+              <label for="opencode-org-id">Workspace ID</label>
+              <input type="text" id="opencode-org-id" placeholder="org_..." />
+              <p class="msg-hint">Filled in automatically from the cURL (the <code>x-org-id</code> header). Shows your Go meters, if subscribed, and your Zen credit balance and spend.</p>
             </div>
           </div>
 
@@ -991,6 +1011,7 @@
       { id: 'openai', name: 'OpenAI', icon: '/icons/openai.svg', defaultName: 'OpenAI API' },
       { id: 'deepseek', name: 'DeepSeek', icon: '/icons/deepseek.svg', defaultName: 'DeepSeek API' },
       { id: 'ollama_cloud', name: 'Ollama Cloud', icon: '/icons/ollama.png', defaultName: 'Ollama Cloud' },
+      { id: 'opencode', name: 'OpenCode', icon: '/icons/opencode.svg', defaultName: 'OpenCode' },
     ];
     const SERVICE_TEMPLATE_MAP: Record<string, typeof SERVICE_TEMPLATES[number]> =
       Object.fromEntries(SERVICE_TEMPLATES.map(t => [t.id, t]));
@@ -1291,6 +1312,7 @@
       chatgpt: ['session', 'weekly'],
       copilot: ['monthly'],
       ollama_cloud: ['session'],
+      opencode: ['session', 'weekly', 'monthly'],
       deepseek: [],
       openai: [],
       custom: [],
@@ -1555,6 +1577,8 @@
         (document.getElementById('openai-org-id') as HTMLInputElement).value = cfg.openai_org_id || '';
         (document.getElementById('chatgpt-cookies') as HTMLInputElement).value = cfg.chatgpt_cookies || '';
         (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value = cfg.ollama_cookies || '';
+        (document.getElementById('opencode-cookies') as HTMLInputElement).value = cfg.opencode_cookies || '';
+        (document.getElementById('opencode-org-id') as HTMLInputElement).value = cfg.opencode_org_id || '';
         (document.getElementById('custom-icon-url') as HTMLInputElement).value = cfg.generic_icon_url || '';
         (document.getElementById('custom-url') as HTMLInputElement).value = cfg.generic_url || '';
         (document.getElementById('custom-method') as HTMLSelectElement).value = cfg.generic_method || 'POST';
@@ -1616,7 +1640,7 @@
       const testResultEl = document.getElementById('custom-test-result');
       if (testResultEl) testResultEl.innerHTML = '';
 
-      ['claude-curl-msg', 'gemini-curl-msg', 'openai-curl-msg', 'chatgpt-curl-msg', 'ollama_cloud-curl-msg']
+      ['claude-curl-msg', 'gemini-curl-msg', 'openai-curl-msg', 'chatgpt-curl-msg', 'ollama_cloud-curl-msg', 'opencode-curl-msg']
         .forEach((id) => {
           const message = document.getElementById(id);
           if (message) {
@@ -2007,6 +2031,32 @@
       }
     });
 
+    document.getElementById('opencode-parse-btn')?.addEventListener('click', async () => {
+      const curl = (document.getElementById('opencode-curl') as HTMLTextAreaElement).value;
+      const msg = document.getElementById('opencode-curl-msg');
+      try {
+        const r = await fetch('/api/import-curl/opencode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl })
+        });
+        const res = await r.json();
+        if (res.status === 'ok') {
+          (document.getElementById('opencode-cookies') as HTMLInputElement).value = res.cookies;
+          (document.getElementById('opencode-org-id') as HTMLInputElement).value = res.org_id;
+          if (msg) {
+            msg.textContent = 'Successfully parsed cookies and workspace id!';
+            msg.className = 'msg-hint success';
+          }
+        } else throw new Error(res.error);
+      } catch (e: any) {
+        if (msg) {
+          msg.textContent = e.message || 'Failed to parse cURL';
+          msg.className = 'msg-hint error';
+        }
+      }
+    });
+
     document.getElementById('ollama_cloud-parse-btn')?.addEventListener('click', async () => {
       const curl = (document.getElementById('ollama_cloud-curl') as HTMLTextAreaElement).value;
       const msg = document.getElementById('ollama_cloud-curl-msg');
@@ -2166,6 +2216,11 @@
       } else if (type === 'ollama_cloud') {
         config = {
           ollama_cookies: (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'opencode') {
+        config = {
+          opencode_cookies: (document.getElementById('opencode-cookies') as HTMLInputElement).value.trim(),
+          opencode_org_id: (document.getElementById('opencode-org-id') as HTMLInputElement).value.trim(),
         };
       } else if (type === 'custom') {
         config = collectCustomConfig();

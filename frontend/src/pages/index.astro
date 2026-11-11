@@ -521,6 +521,7 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.openai-bg)   { background: color-mix(in srgb, var(--openai) 18%, var(--surface)); }
   :global(.chatgpt-bg)  { background: color-mix(in srgb, var(--chatgpt) 18%, var(--surface)); }
   :global(.ollama_cloud-bg) { background: color-mix(in srgb, var(--ollama_cloud) 18%, var(--surface)); }
+  :global(.opencode-bg) { background: color-mix(in srgb, var(--opencode) 18%, var(--surface)); }
   :global(.custom-bg)   { background: color-mix(in srgb, var(--custom) 18%, var(--surface)); }
 
   :global(.service-name) {
@@ -1268,6 +1269,10 @@ import ServiceManager from '../components/ServiceManager.astro';
       endpoint: '/api/import-curl/ollama_cloud',
       apply: (res, cfg) => ({ ...cfg, ollama_cookies: res.cookies }),
     },
+    opencode: {
+      endpoint: '/api/import-curl/opencode',
+      apply: (res, cfg) => ({ ...cfg, opencode_cookies: res.cookies, opencode_org_id: res.org_id }),
+    },
   };
 
   function curlLinkHtml(svcId: number, type: string): string {
@@ -1304,6 +1309,7 @@ import ServiceManager from '../components/ServiceManager.astro';
       openai: '<img src="/icons/openai.svg" alt="" />',
       chatgpt: '<img src="/icons/chatgpt.svg" alt="" />',
       ollama_cloud: '<img src="/icons/ollama.png" alt="" />',
+      opencode: '<img src="/icons/opencode.svg" alt="" />',
       custom: '<img src="/icons/custom.svg" alt="" />',
     };
     if (type === 'custom' && svcId != null) {
@@ -1631,6 +1637,41 @@ import ServiceManager from '../components/ServiceManager.astro';
       }
       if (d.requests_month != null) {
         html += row('Requests this month', Number(d.requests_month).toLocaleString());
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'opencode') {
+      // Go subscribers get 5-hour / weekly / monthly meters (spend-based, in $);
+      // everyone also gets their Zen credit balance and this month's spend.
+      let html = planRow(d.plan ? escapeHtml(String(d.plan)) : null);
+      const severities: any[] = [];
+      const meterExtra = (m: any) =>
+        (typeof m.used === 'number' && typeof m.limit === 'number')
+          ? `$${m.used.toFixed(2)} of $${m.limit.toFixed(2)}` : '';
+      const OC_METERS: [string, string, number][] = [
+        ['five_hour', '5-hour window', 5 * 3600 * 1000],
+        ['week', 'Weekly', 7 * 24 * 3600 * 1000],
+        ['month', 'Monthly', 30 * 24 * 3600 * 1000],
+      ];
+      let hasHero = false;
+      OC_METERS.forEach(([key, label, windowMs]) => {
+        const m = d[key];
+        if (!m || typeof m.percent_used !== 'number') return;
+        severities.push(getUsageSeverity(m.percent_used, m.resets_at ?? null, windowMs));
+        if (!hasHero) {
+          hasHero = true;
+          html += heroBlock(label, { utilization: m.percent_used, resets_at: m.resets_at ?? null }, null, windowMs, meterExtra(m));
+        } else {
+          html += listRow(label, m.percent_used, m.resets_at ?? null, meterExtra(m), windowMs);
+        }
+      });
+      if (d.balance != null) {
+        if (hasHero) html += `<hr class="divider">`;
+        html += row('Zen credits', `$${Number(d.balance).toFixed(2)}`, 'big');
+      }
+      if (d.cost_month != null) {
+        html += row('Spend this month', `$${Number(d.cost_month).toFixed(2)}`);
       }
       body.innerHTML = staleWarning + html;
       setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');

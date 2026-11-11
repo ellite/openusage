@@ -93,6 +93,29 @@ def parse_ollama_curl(curl_text: str) -> dict:
     return {"cookies": parsed["cookies"]}
 
 
+_OPENCODE_ORG_RE = re.compile(r"\borg_[A-Za-z0-9]+")
+
+
+def parse_opencode_curl(curl_text: str) -> dict:
+    """The opencode.ai console authenticates with a session cookie and scopes
+    every API call to a workspace via the `x-org-id` header (also visible in
+    the page URL, /console/<org_id>/...)."""
+    parsed = parse_curl(curl_text)
+    org_id = find_header(curl_text, "x-org-id")
+    if not org_id:
+        for source in (find_header(curl_text, "referer"), parsed["url"]):
+            m = _OPENCODE_ORG_RE.search(source or "")
+            if m:
+                org_id = m.group(0)
+                break
+    if not org_id:
+        raise ValueError(
+            "Could not find the workspace id — copy a request made from the "
+            "opencode.ai console (its x-org-id header or /console/org_… URL)."
+        )
+    return {"cookies": parsed["cookies"], "org_id": org_id}
+
+
 def parse_gemini_curl(curl_text: str) -> dict:
     parsed = parse_curl(curl_text)
 
