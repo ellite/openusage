@@ -1625,6 +1625,13 @@ import ServiceManager from '../components/ServiceManager.astro';
         html += `<hr class="divider">`;
         html += row('Usage credits', `$${Number(d.balance).toFixed(2)}`, 'big');
       }
+      // ollama.com's usage report (replaced the old free-usage meter / credit balance)
+      if (d.cost_month != null) {
+        html += row('Cost this month', `$${Number(d.cost_month).toFixed(2)}`, 'big');
+      }
+      if (d.requests_month != null) {
+        html += row('Requests this month', Number(d.requests_month).toLocaleString());
+      }
       body.innerHTML = staleWarning + html;
       setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
 
