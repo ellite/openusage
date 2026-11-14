@@ -13,6 +13,7 @@ APPLICABLE_THRESHOLDS = {
     "gemini": ("session", "weekly"),
     "chatgpt": ("session", "weekly"),
     "copilot": ("monthly",),
+    "mistral": ("monthly",),
     "ollama_cloud": ("session",),
     "opencode": ("session", "weekly", "monthly"),
     "deepseek": (),
@@ -63,6 +64,18 @@ def extract_usage_percentages(service_type: str, data: dict) -> dict:
         if pcts:
             out["monthly"] = max(pcts)
 
+    elif service_type == "mistral":
+        # Vibe Code and API each have their own monthly allowance against the
+        # same billing period -- the worst (highest used %) drives the
+        # notification, mirroring Copilot's multiple monthly quotas.
+        pcts = [
+            pct
+            for pct in (_num((data.get(k) or {}).get("percent_used")) for k in ("vibe", "api"))
+            if pct is not None
+        ]
+        if pcts:
+            out["monthly"] = max(pcts)
+
     elif service_type == "ollama_cloud":
         pct = _num(data.get("percent_used"))
         if pct is not None:
@@ -102,6 +115,20 @@ def extract_history_metrics(service_type: str, data: dict) -> dict:
                 }
         except (TypeError, ValueError):
             pass
+
+    elif service_type == "mistral":
+        for key, label in (("vibe", "Vibe usage"), ("api", "Studio usage")):
+            block = data.get(key) or {}
+            pct = _num(block.get("percent_used"))
+            if pct is not None:
+                out[f"{key}_pct"] = {"label": label, "unit": "%", "value": pct}
+            value = _num(block.get("budget"))
+            if value is not None:
+                out[f"{key}_budget"] = {
+                    "label": f"{label} budget",
+                    "unit": block.get("currency") or "EUR",
+                    "value": value,
+                }
 
     elif service_type == "custom":
         out.update(_custom_history_metrics(data))

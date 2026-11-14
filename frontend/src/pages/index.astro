@@ -522,6 +522,7 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.chatgpt-bg)  { background: color-mix(in srgb, var(--chatgpt) 18%, var(--surface)); }
   :global(.ollama_cloud-bg) { background: color-mix(in srgb, var(--ollama_cloud) 18%, var(--surface)); }
   :global(.opencode-bg) { background: color-mix(in srgb, var(--opencode) 18%, var(--surface)); }
+  :global(.mistral-bg)  { background: color-mix(in srgb, var(--mistral) 18%, var(--surface)); }
   :global(.custom-bg)   { background: color-mix(in srgb, var(--custom) 18%, var(--surface)); }
 
   :global(.service-name) {
@@ -1310,6 +1311,7 @@ import ServiceManager from '../components/ServiceManager.astro';
       chatgpt: '<img src="/icons/chatgpt.svg" alt="" />',
       ollama_cloud: '<img src="/icons/ollama.png" alt="" />',
       opencode: '<img src="/icons/opencode.svg" alt="" />',
+      mistral: '<img src="/icons/mistral.svg" alt="" />',
       custom: '<img src="/icons/custom.svg" alt="" />',
     };
     if (type === 'custom' && svcId != null) {
@@ -1672,6 +1674,40 @@ import ServiceManager from '../components/ServiceManager.astro';
       }
       if (d.cost_month != null) {
         html += row('Spend this month', `$${Number(d.cost_month).toFixed(2)}`);
+      }
+      body.innerHTML = staleWarning + html;
+      setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
+
+    } else if (type === 'mistral') {
+      // One Mistral key (Vibe or La Plateforme) carries two monthly
+      // allowances against the same billing period: Vibe and Studio. Both
+      // reset together, so only the first ring shows the countdown.
+      let html = planRow(d.plan ?? null);
+      const severities: any[] = [];
+      const monthWindow = 30 * 24 * 3600 * 1000;
+      const symbol = (cur: string) => cur === 'EUR' ? '€' : cur === 'USD' ? '$' : `${cur} `;
+      const budgetExtra = (b: any) => {
+        if (typeof b.budget !== 'number') return '';
+        const sym = symbol(b.currency ?? 'EUR');
+        const used = b.budget * (b.percent_used / 100);
+        return `${sym}${used.toFixed(2)} of ${sym}${b.budget.toFixed(2)}`;
+      };
+      let hasHero = false;
+      (['vibe', 'api'] as const).forEach((key) => {
+        const b = d[key];
+        if (!b || typeof b.percent_used !== 'number') return;
+        const label = key === 'vibe' ? 'Vibe' : 'Studio';
+        severities.push(getUsageSeverity(b.percent_used, b.resets_at ?? null, monthWindow));
+        if (!hasHero) {
+          hasHero = true;
+          html += heroBlock(label, { utilization: b.percent_used, resets_at: b.resets_at ?? null }, null, monthWindow, budgetExtra(b));
+        } else {
+          html += heroBlock(label, { utilization: b.percent_used, resets_at: null }, budgetExtra(b));
+        }
+      });
+      if (d.payg_enabled != null) {
+        if (hasHero) html += `<hr class="divider">`;
+        html += row('Pay-as-you-go', d.payg_enabled ? 'On' : 'Off');
       }
       body.innerHTML = staleWarning + html;
       setAccent(svcId, severities.length ? worstSeverity(severities) : 'ok');
@@ -2053,6 +2089,7 @@ import ServiceManager from '../components/ServiceManager.astro';
                 <span class="provider-pill copilot-bg"><img src="/icons/copilot-white.svg" alt="Copilot" width="16" height="16" /></span>
                 <span class="provider-pill openai-bg"><img src="/icons/openai.svg" alt="OpenAI" width="16" height="16" /></span>
                 <span class="provider-pill chatgpt-bg"><img src="/icons/chatgpt.svg" alt="ChatGPT" width="16" height="16" /></span>
+                <span class="provider-pill mistral-bg"><img src="/icons/mistral.svg" alt="Mistral" width="16" height="16" /></span>
               </div>
             </div>
 

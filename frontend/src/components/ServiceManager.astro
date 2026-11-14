@@ -28,6 +28,7 @@
               <option value="chatgpt">ChatGPT</option>
               <option value="ollama_cloud">Ollama Cloud</option>
               <option value="opencode">OpenCode</option>
+              <option value="mistral">Mistral</option>
             </select>
           </div>
 
@@ -187,6 +188,15 @@
               <label for="ollama_cloud-cookies">Cookies String</label>
               <input type="text" id="ollama_cloud-cookies" placeholder="cf_clearance=...; __Secure-session=..." />
               <p class="msg-hint">Scraped from the HTML settings page — the Cloudflare clearance cookie expires in hours, so re-paste when it goes stale.</p>
+            </div>
+          </div>
+
+          <!-- Config Form: Mistral (Vibe Code + La Plateforme API) -->
+          <div id="config-mistral" class="config-section" style="display: none;">
+            <div class="form-group">
+              <label for="mistral-key">API Key</label>
+              <input type="password" id="mistral-key" placeholder="mistral key..." />
+              <p class="msg-hint">Works with your Vibe Code key or a La Plateforme key — both show Vibe and Studio monthly usage.</p>
             </div>
           </div>
 
@@ -1012,6 +1022,7 @@
       { id: 'deepseek', name: 'DeepSeek', icon: '/icons/deepseek.svg', defaultName: 'DeepSeek API' },
       { id: 'ollama_cloud', name: 'Ollama Cloud', icon: '/icons/ollama.png', defaultName: 'Ollama Cloud' },
       { id: 'opencode', name: 'OpenCode', icon: '/icons/opencode.svg', defaultName: 'OpenCode' },
+      { id: 'mistral', name: 'Mistral', icon: '/icons/mistral.svg', defaultName: 'Mistral' },
     ];
     const SERVICE_TEMPLATE_MAP: Record<string, typeof SERVICE_TEMPLATES[number]> =
       Object.fromEntries(SERVICE_TEMPLATES.map(t => [t.id, t]));
@@ -1311,6 +1322,7 @@
       gemini: ['session', 'weekly'],
       chatgpt: ['session', 'weekly'],
       copilot: ['monthly'],
+      mistral: ['monthly'],
       ollama_cloud: ['session'],
       opencode: ['session', 'weekly', 'monthly'],
       deepseek: [],
@@ -1579,6 +1591,7 @@
         (document.getElementById('ollama_cloud-cookies') as HTMLInputElement).value = cfg.ollama_cookies || '';
         (document.getElementById('opencode-cookies') as HTMLInputElement).value = cfg.opencode_cookies || '';
         (document.getElementById('opencode-org-id') as HTMLInputElement).value = cfg.opencode_org_id || '';
+        (document.getElementById('mistral-key') as HTMLInputElement).value = cfg.mistral_api_key || '';
         (document.getElementById('custom-icon-url') as HTMLInputElement).value = cfg.generic_icon_url || '';
         (document.getElementById('custom-url') as HTMLInputElement).value = cfg.generic_url || '';
         (document.getElementById('custom-method') as HTMLSelectElement).value = cfg.generic_method || 'POST';
@@ -2221,6 +2234,10 @@
         config = {
           opencode_cookies: (document.getElementById('opencode-cookies') as HTMLInputElement).value.trim(),
           opencode_org_id: (document.getElementById('opencode-org-id') as HTMLInputElement).value.trim(),
+        };
+      } else if (type === 'mistral') {
+        config = {
+          mistral_api_key: (document.getElementById('mistral-key') as HTMLInputElement).value.trim(),
         };
       } else if (type === 'custom') {
         config = collectCustomConfig();

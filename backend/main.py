@@ -81,6 +81,7 @@ from fetchers.gemini import fetch_gemini
 from fetchers.deepseek import fetch_deepseek
 from fetchers.copilot import fetch_copilot, start_device_flow, poll_device_flow
 from fetchers.openai_api import fetch_openai
+from fetchers.mistral import fetch_mistral
 from fetchers.chatgpt import fetch_chatgpt
 from fetchers.ollama_cloud import fetch_ollama_cloud
 from fetchers.opencode import fetch_opencode
@@ -104,6 +105,7 @@ SERVICE_FETCHERS = {
     "deepseek": fetch_deepseek,
     "copilot": fetch_copilot,
     "openai": fetch_openai,
+    "mistral": fetch_mistral,
     "chatgpt": fetch_chatgpt,
     "ollama_cloud": fetch_ollama_cloud,
     "opencode": fetch_opencode,

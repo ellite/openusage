@@ -69,9 +69,11 @@
 | GitHub Copilot | Plan, quota reset date, premium requests, chat, and completions | GitHub device login or token |
 | OpenAI | Current-month organization spend, optionally credit balance and subscription details | Admin API key, with optional browser-session import |
 | Ollama Cloud | Plan, account balance, free-usage percentage, and reset time | Browser cURL import |
+| OpenCode | Go subscription meters, Zen credit balance, and monthly spend | Browser cURL import |
+| Mistral | Plan, monthly Vibe allowance, and monthly Studio (API) allowance | API key (Vibe Code or La Plateforme key) |
 | Custom API | Any fields you pick from a JSON response, for providers with no dedicated integration | Your own URL/method/headers/body |
 
-Provider integrations that use browser sessions or undocumented endpoints can change as providers update their services. Reconnect the provider from **Settings** if its session expires.
+Provider integrations that use browser sessions or undocumented endpoints can change as providers update their services. Reconnect the provider if its session expires.
 
 ## Getting Started
 
