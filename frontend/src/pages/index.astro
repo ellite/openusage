@@ -63,10 +63,13 @@ import ServiceManager from '../components/ServiceManager.astro';
       </div>
       <div class="modal-body">
         <div class="history-ranges" id="history-ranges">
-          <button type="button" class="btn btn-sm" data-days="1">24h</button>
-          <button type="button" class="btn btn-sm" data-days="7">7d</button>
-          <button type="button" class="btn btn-sm" data-days="30">30d</button>
-          <button type="button" class="btn btn-sm" data-days="0">All</button>
+          <button type="button" class="btn btn-sm" data-hours="1">1h</button>
+          <button type="button" class="btn btn-sm" data-hours="3">3h</button>
+          <button type="button" class="btn btn-sm" data-hours="6">6h</button>
+          <button type="button" class="btn btn-sm" data-hours="24">24h</button>
+          <button type="button" class="btn btn-sm" data-hours="168">7d</button>
+          <button type="button" class="btn btn-sm" data-hours="720">30d</button>
+          <button type="button" class="btn btn-sm" data-hours="0">All</button>
         </div>
         <div id="history-content" class="msg-hint">Loading…</div>
       </div>
@@ -2249,7 +2252,7 @@ import ServiceManager from '../components/ServiceManager.astro';
 
   // ---- Usage history popup ----
   let historySvcId: number | null = null;
-  let historyDays = 7;
+  let historyHours = 168;
 
   function historyChartSvg(points: { t: string; v: number }[], unit: string): string {
     const W = 600, H = 180, L = 44, R = 10, T = 10, B = 22;
@@ -2298,8 +2301,8 @@ import ServiceManager from '../components/ServiceManager.astro';
       box.textContent = 'Loading…';
     }
     document.querySelectorAll('#history-ranges .btn').forEach((b) =>
-      b.classList.toggle('active', Number((b as HTMLElement).dataset.days) === historyDays));
-    const qs = historyDays ? `?since=${encodeURIComponent(new Date(Date.now() - historyDays * 86400000).toISOString())}` : '';
+      b.classList.toggle('active', Number((b as HTMLElement).dataset.hours) === historyHours));
+    const qs = historyHours ? `?since=${encodeURIComponent(new Date(Date.now() - historyHours * 3600000).toISOString())}` : '';
     try {
       const res = await fetch(`/api/user-services/${historySvcId}/history${qs}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
@@ -2358,9 +2361,9 @@ import ServiceManager from '../components/ServiceManager.astro';
     if (e.target === e.currentTarget) closeHistoryModal();
   });
   document.getElementById('history-ranges')?.addEventListener('click', (e: MouseEvent) => {
-    const btn = (e.target as HTMLElement).closest('[data-days]') as HTMLElement | null;
+    const btn = (e.target as HTMLElement).closest('[data-hours]') as HTMLElement | null;
     if (!btn) return;
-    historyDays = Number(btn.dataset.days);
+    historyHours = Number(btn.dataset.hours);
     void loadHistory();
   });
 
