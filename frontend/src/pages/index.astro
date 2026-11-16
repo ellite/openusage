@@ -873,7 +873,10 @@ import ServiceManager from '../components/ServiceManager.astro';
   /* flow-root keeps the last chart's bottom margin inside the box, so its
      measured height is the same before and after min-height is applied. */
   #history-content { display: flow-root; transition: opacity 0.15s; }
-  .history-ranges { display: flex; gap: 6px; margin-bottom: 16px; }
+  .history-ranges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  @media (max-width: 480px) {
+    .history-ranges .btn { flex: 1 1 auto; min-width: 0; padding-left: 8px; padding-right: 8px; }
+  }
   .history-ranges .btn.active { border-color: var(--accent, currentColor); font-weight: 700; }
   :global(.history-chart) { margin-bottom: 20px; }
   :global(.history-chart h4) { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; }
