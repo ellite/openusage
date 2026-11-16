@@ -880,6 +880,9 @@ import ServiceManager from '../components/ServiceManager.astro';
   :global(.history-chart svg) { width: 100%; height: auto; display: block; }
   :global(.history-chart .grid) { stroke: var(--border); stroke-width: 1; }
   :global(.history-chart .line) { fill: none; stroke: var(--accent, #6aa5ff); stroke-width: 2; stroke-linejoin: round; }
+  :global(.history-chart .hit) { fill: transparent; cursor: crosshair; }
+  :global(.history-chart .hit:hover) { fill: var(--accent, #6aa5ff); fill-opacity: 0.35; }
+  :global(.history-chart .readout) { font-size: 11px; font-weight: 600; fill: var(--text, currentColor); }
   :global(.history-chart .dot) { fill: var(--accent, #6aa5ff); }
   :global(.history-chart text) { fill: var(--text-muted); font-size: 10px; }
   .curl-box {
@@ -2272,11 +2275,31 @@ import ServiceManager from '../components/ServiceManager.astro';
       const y = ymin + (ymax - ymin) * f;
       return `<line class="grid" x1="${L}" x2="${W - R}" y1="${sy(y)}" y2="${sy(y)}"/><text x="${L - 6}" y="${sy(y) + 3}" text-anchor="end">${fmtY(y)}</text>`;
     }).join('');
-    const dots = points.length <= 60
-      ? points.map((p, i) => `<circle class="dot" cx="${sx(xs[i]).toFixed(1)}" cy="${sy(p.v).toFixed(1)}" r="2.5"><title>${escapeHtml(fmtX(xs[i]))}: ${fmtY(p.v)}${unit === '%' ? '' : ' ' + escapeHtml(unit)}</title></circle>`).join('')
-      : '';
-    return `<svg viewBox="0 0 ${W} ${H}" role="img">${grid}<path class="line" d="${path}"/>${dots}
+    const fmtV = (v: number) => (unit === '%' ? `${Math.round(v)}%` : `${v.toFixed(2)} ${unit}`);
+    const showDots = points.length <= 60;
+    const dots = points.map((p, i) => {
+      const cx = sx(xs[i]).toFixed(1), cy = sy(p.v).toFixed(1);
+      const label = escapeHtml(`${fmtX(xs[i])} — ${fmtV(p.v)}`);
+      return (showDots ? `<circle class="dot" cx="${cx}" cy="${cy}" r="2.5"/>` : '')
+        + `<circle class="hit" cx="${cx}" cy="${cy}" r="7" data-label="${label}"><title>${label}</title></circle>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img">${grid}<path class="line" d="${path}"/>${dots}<text class="readout" x="${W - R}" y="${T + 2}" text-anchor="end">${escapeHtml(fmtV(ys[ys.length - 1]))}</text>
       <text x="${L}" y="${H - 6}">${escapeHtml(fmtX(xmin))}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${escapeHtml(fmtX(xmax))}</text></svg>`;
+  }
+
+  // How much was consumed across the shown range. Balances fall as you spend
+  // (rises are top-ups, ignored); spend/percent figures rise (drops are resets,
+  // ignored). Custom fields have no known meaning, so they get no total.
+  function historySpent(serviceType: string, key: string, s: any): string {
+    if (serviceType === 'custom' || s.points.length < 2) return '';
+    const isBalance = /balance|budget/.test(key);
+    let total = 0;
+    for (let i = 1; i < s.points.length; i++) {
+      const d = s.points[i].v - s.points[i - 1].v;
+      if (isBalance ? d < 0 : d > 0) total += Math.abs(d);
+    }
+    if (s.unit === '%') return `+${Math.round(total)}% used in range`;
+    return `${total.toFixed(2)} ${escapeHtml(s.unit)} spent in range`;
   }
 
   // The modal may only grow while it is open: after each render, pin its
@@ -2313,7 +2336,7 @@ import ServiceManager from '../components/ServiceManager.astro';
         box.textContent = 'History is off for this service. Edit the service and tick "Store usage history" to start recording.';
         return;
       }
-      const entries = Object.values(body.series || {}) as any[];
+      const entries = Object.entries(body.series || {}) as [string, any][];
       if (!entries.length) {
         box.textContent = body.history.length
           ? (body.service_type === 'custom'
@@ -2323,10 +2346,11 @@ import ServiceManager from '../components/ServiceManager.astro';
         return;
       }
       box.className = '';
-      box.innerHTML = entries.map((s: any) => {
+      box.innerHTML = entries.map(([key, s]) => {
         const last = s.points[s.points.length - 1];
         const lastTxt = s.unit === '%' ? `${Math.round(last.v)}%` : `${last.v.toFixed(2)} ${escapeHtml(s.unit)}`;
-        return `<div class="history-chart"><h4><span>${escapeHtml(s.label)}</span><span>${lastTxt} · ${s.points.length} pts</span></h4>${historyChartSvg(s.points, s.unit)}</div>`;
+        const spent = historySpent(body.service_type, key, s);
+        return `<div class="history-chart"><h4><span>${escapeHtml(s.label)}</span><span>${lastTxt}${spent ? ' · ' + spent : ''}</span></h4>${historyChartSvg(s.points, s.unit)}</div>`;
       }).join('');
     } catch (e: any) {
       box.className = 'msg-hint';
@@ -2359,6 +2383,12 @@ import ServiceManager from '../components/ServiceManager.astro';
   document.getElementById('history-modal-close-btn')?.addEventListener('click', closeHistoryModal);
   document.getElementById('history-modal')?.addEventListener('click', (e: MouseEvent) => {
     if (e.target === e.currentTarget) closeHistoryModal();
+  });
+  document.getElementById('history-content')?.addEventListener('mouseover', (e: MouseEvent) => {
+    const hit = (e.target as Element).closest?.('.hit');
+    if (!hit) return;
+    const ro = hit.closest('svg')?.querySelector('.readout');
+    if (ro) ro.textContent = hit.getAttribute('data-label') || '';
   });
   document.getElementById('history-ranges')?.addEventListener('click', (e: MouseEvent) => {
     const btn = (e.target as HTMLElement).closest('[data-hours]') as HTMLElement | null;
