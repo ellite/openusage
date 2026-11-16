@@ -122,12 +122,14 @@ def extract_history_metrics(service_type: str, data: dict) -> dict:
             pct = _num(block.get("percent_used"))
             if pct is not None:
                 out[f"{key}_pct"] = {"label": label, "unit": "%", "value": pct}
-            value = _num(block.get("budget"))
-            if value is not None:
-                out[f"{key}_budget"] = {
-                    "label": f"{label} budget",
+            # The budget is a constant ceiling, so chart the amount used instead:
+            # that is the figure that actually moves (and the one the card shows).
+            budget = _num(block.get("budget"))
+            if budget is not None and pct is not None:
+                out[f"{key}_used"] = {
+                    "label": f"{label} spent",
                     "unit": block.get("currency") or "EUR",
-                    "value": value,
+                    "value": round(budget * pct / 100, 2),
                 }
 
     elif service_type == "custom":
