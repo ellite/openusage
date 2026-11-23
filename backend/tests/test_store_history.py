@@ -37,6 +37,17 @@ class StoreHistoryTests(unittest.IsolatedAsyncioTestCase):
         history = await db.get_service_usage_history(sid)
         self.assertEqual([h["data"]["n"] for h in history], [0, 1, 2])
 
+    async def test_over_limit_downsamples_across_full_range(self):
+        sid = await db.add_user_service(self.user_id, "custom", "s", {}, store_history=True)
+        for i in range(25):
+            await db.save_service_usage(sid, {"n": i})
+        history = await db.get_service_usage_history(sid, limit=10)
+        ns = [h["data"]["n"] for h in history]
+        self.assertLessEqual(len(ns), 11)
+        self.assertEqual(ns[0], 0)
+        self.assertEqual(ns[-1], 24)
+        self.assertEqual(ns, sorted(ns))
+
     async def test_omitted_flag_on_update_is_preserved(self):
         sid = await db.add_user_service(self.user_id, "custom", "s", {}, store_history=True)
         await db.update_user_service(sid, self.user_id, "renamed", {})

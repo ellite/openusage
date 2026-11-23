@@ -629,18 +629,38 @@ async def save_service_usage(user_service_id: int, data: dict) -> bool:
 
 
 async def get_service_usage_history(user_service_id: int, since: str | None = None, limit: int = 1000):
-    """Oldest-first fetch history for charting; capped at the newest `limit` rows."""
-    query = "SELECT data, fetched_at FROM service_usage_history WHERE user_service_id = ?"
+    """Oldest-first fetch history for charting.
+
+    When more than `limit` rows match, the result is evenly downsampled across
+    the whole range (always keeping the first and newest rows) instead of being
+    truncated to the newest `limit` rows, so long ranges still span their full
+    period.
+    """
+    where = "user_service_id = ?"
     params: list = [user_service_id]
     if since:
-        query += " AND fetched_at >= ?"
+        where += " AND fetched_at >= ?"
         params.append(since)
-    query += " ORDER BY id DESC LIMIT ?"
-    params.append(limit)
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(query, params) as cursor:
+        async with db.execute(
+            f"SELECT COUNT(*) FROM service_usage_history WHERE {where}", params
+        ) as cursor:
+            total = (await cursor.fetchone())[0]
+        if total <= limit:
+            query = f"SELECT data, fetched_at FROM service_usage_history WHERE {where} ORDER BY id ASC"
+            qparams = params
+        else:
+            stride = -(-total // limit)  # ceil(total / limit)
+            query = (
+                "SELECT data, fetched_at FROM ("
+                "SELECT data, fetched_at, id, ROW_NUMBER() OVER (ORDER BY id) AS rn "
+                f"FROM service_usage_history WHERE {where}"
+                ") WHERE (rn - 1) % ? = 0 OR rn = ? ORDER BY id ASC"
+            )
+            qparams = params + [stride, total]
+        async with db.execute(query, qparams) as cursor:
             rows = await cursor.fetchall()
-    return [{"data": json.loads(r[0]), "fetched_at": r[1]} for r in reversed(rows)]
+    return [{"data": json.loads(r[0]), "fetched_at": r[1]} for r in rows]
 
 
 async def get_latest_service_usage(user_service_id: int):
