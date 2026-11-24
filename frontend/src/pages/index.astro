@@ -1727,16 +1727,38 @@ import ServiceManager from '../components/ServiceManager.astro';
       const resetField = fields.find((f: any) =>
         f.type === 'reset_date' && parseFlexibleDate(f.value)
       );
-      const resetDate = resetField ? parseFlexibleDate(resetField.value) : null;
-      const resetsAt = resetDate ? resetDate.toISOString() : null;
-      const hasRenderableProgress = fields.some((f: any) =>
+      const isRenderableProgress = (f: any) =>
         PROGRESS_FIELD_TYPES.has(f.type)
         && f.value !== null
         && f.total !== null
         && Number.isFinite(Number(f.value))
         && Number.isFinite(Number(f.total))
-        && Number(f.total) > 0
-      );
+        && Number(f.total) > 0;
+      const hasRenderableProgress = fields.some(isRenderableProgress);
+      // A reset_date that follows a progress field (before the next progress
+      // field) belongs to that meter: each meter shows its own reset and the
+      // reset field isn't rendered again. If no progress field is followed by
+      // a reset_date (or there is only one reset_date), every meter shares the first one.
+      const ownReset = new Map<any, any>();
+      const consumedResets = new Set<any>();
+      let currentProgress: any = null;
+      fields.forEach((f: any) => {
+        if (isRenderableProgress(f)) {
+          currentProgress = f;
+        } else if (f.type === 'reset_date' && currentProgress && parseFlexibleDate(f.value)) {
+          if (!ownReset.has(currentProgress)) {
+            ownReset.set(currentProgress, f);
+            consumedResets.add(f);
+          }
+        }
+      });
+      const pairResets = ownReset.size > 0
+        && fields.filter((f: any) => f.type === 'reset_date' && parseFlexibleDate(f.value)).length > 1;
+      const resetFor = (f: any): string | null => {
+        const rf = pairResets ? ownReset.get(f) : resetField;
+        const dt = rf ? parseFlexibleDate(rf.value) : null;
+        return dt ? dt.toISOString() : null;
+      };
       const planField = fields.find((f: any) => f.type === 'plan');
       let html = '';
       if (planField && planField.value != null && String(planField.value).trim() !== '') {
@@ -1759,6 +1781,7 @@ import ServiceManager from '../components/ServiceManager.astro';
               used = total - used;
             }
             if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
+              const resetsAt = resetFor(f);
               const usedPct = Math.max(0, Math.min(100, (used / total) * 100));
               const formatValue = (value: number) => Number.isInteger(value)
                 ? value.toLocaleString()
@@ -1810,7 +1833,7 @@ import ServiceManager from '../components/ServiceManager.astro';
             html += row(label, escapeHtml(`${f.symbol || ''}${displayNum}`), bigCls);
 
           } else if (ftype === 'reset_date') {
-            if (f === resetField && hasRenderableProgress) return;
+            if (pairResets ? consumedResets.has(f) : (hasRenderableProgress && f === resetField)) return;
             const d2 = parseFlexibleDate(f.value);
             if (!d2) {
               html += row(label, '—');
